@@ -1,4 +1,8 @@
+from django.conf import settings
+from hashlib import sha256
 from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from django.http import JsonResponse
@@ -7,10 +11,13 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from google.auth import exceptions as google_exceptions
+from google.auth.transport.requests import Request as GoogleRequest
+from google.oauth2 import id_token
 
 from .authentication import issue_token
-from .models import Account, Entry
-from .serializers import InstructionSerializer, LoginSerializer, RegistrationSerializer, User, account_data, entry_data
+from .models import Account, Entry, GoogleIdentity
+from .serializers import GoogleCredentialSerializer, InstructionSerializer, LoginSerializer, RegistrationSerializer, User, account_data, entry_data
 from .services import BankingError, Instruction, account_id, mini_statement, post_entry, recipient_for
 
 
@@ -65,6 +72,64 @@ def login(request):
     if user is None or not Account.objects.filter(owner=user).exists():
         return Response({"detail": "Check your email address and password."}, status=401)
     return session_response(user)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def google_config(request):
+    return Response({"client_id": settings.GOOGLE_CLIENT_ID})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([AccessThrottle])
+def google_login(request):
+    serializer = GoogleCredentialSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    if not settings.GOOGLE_CLIENT_ID:
+        return Response({"detail": "Google sign-in is not configured."}, status=503)
+    try:
+        claims = id_token.verify_oauth2_token(
+            serializer.validated_data["credential"], GoogleRequest(), settings.GOOGLE_CLIENT_ID,
+        )
+    except google_exceptions.TransportError:
+        return Response({"detail": "Google sign-in is temporarily unavailable. Try again."}, status=503)
+    except (ValueError, google_exceptions.GoogleAuthError):
+        return Response({"detail": "Google sign-in could not be verified."}, status=401)
+
+    subject = claims.get("sub")
+    email = claims.get("email")
+    if (claims.get("iss") not in ("accounts.google.com", "https://accounts.google.com")
+            or claims.get("email_verified") is not True
+            or not isinstance(subject, str) or not subject or len(subject) > 255 or not subject.isascii()
+            or not isinstance(email, str) or len(email) > 150):
+        return Response({"detail": "Google did not provide a verified account."}, status=401)
+    email = email.lower()
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({"detail": "Google did not provide a valid email address."}, status=401)
+    subject_hash = sha256(subject.encode("ascii")).hexdigest()
+    identity = GoogleIdentity.objects.select_related("user").filter(subject_hash=subject_hash).first()
+    if identity is None:
+        try:
+            with transaction.atomic():
+                # Email-password accounts are not automatically linked. Registration
+                # does not verify email ownership, so linking by email allows takeover.
+                if User.objects.filter(username=email).exists():
+                    return Response({"detail": "An account already uses this email. Sign in with its password."}, status=409)
+                name = claims.get("name")
+                name = name.strip()[:150] if isinstance(name, str) else ""
+                user = User.objects.create_user(username=email, email=email, first_name=name or email)
+                Account.objects.create(owner=user)
+                identity = GoogleIdentity.objects.create(subject_hash=subject_hash, user=user)
+        except IntegrityError:
+            identity = GoogleIdentity.objects.select_related("user").filter(subject_hash=subject_hash).first()
+            if identity is None:
+                return Response({"detail": "An account already uses this email. Sign in with its password."}, status=409)
+    if not identity.user.is_active or not Account.objects.filter(owner=identity.user).exists():
+        return Response({"detail": "This account is unavailable."}, status=403)
+    return session_response(identity.user)
 
 
 @api_view(["POST"])

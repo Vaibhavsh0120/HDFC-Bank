@@ -9,11 +9,12 @@ from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import connection, connections
-from django.test import SimpleTestCase, TransactionTestCase
+from django.test import SimpleTestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
+from google.auth.exceptions import TransportError
 
-from .models import AccessSession, Account, Entry
+from .models import AccessSession, Account, Entry, GoogleIdentity
 from .services import BankingError, Instruction, InsufficientFunds, post_entry
 from .structures import CircularBuffer, merge_ordered
 
@@ -193,6 +194,72 @@ class BankingTests(APITestCase):
         self.assertEqual(result.status_code, 302)
         account.refresh_from_db()
         self.assertEqual(account.status, "frozen")
+
+
+@override_settings(GOOGLE_CLIENT_ID="test-client.apps.googleusercontent.com")
+class GoogleSignInTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.claims = {
+            "iss": "https://accounts.google.com", "sub": "google-subject-123",
+            "email": "alex@example.test", "email_verified": True, "name": "Alex",
+        }
+
+    def test_provisions_once_and_uses_subject(self):
+        with patch("banking.views.id_token.verify_oauth2_token", return_value=self.claims) as verify:
+            first = self.client.post("/api/auth/google/", {"credential": "signed-token"})
+            self.assertEqual(first.status_code, 200)
+            self.assertEqual(first.data["account"]["email"], "alex@example.test")
+            self.assertEqual(first.data["account"]["balance"], "0.00")
+            verify.assert_called_once()
+            self.assertEqual(verify.call_args.args[2], "test-client.apps.googleusercontent.com")
+            changed_email = {**self.claims, "email": "new@example.test"}
+        with patch("banking.views.id_token.verify_oauth2_token", return_value=changed_email):
+            second = self.client.post("/api/auth/google/", {"credential": "signed-token"})
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.data["account"]["number"], second.data["account"]["number"])
+        self.assertEqual(GoogleIdentity.objects.count(), 1)
+        self.assertEqual(Account.objects.count(), 1)
+        user = GoogleIdentity.objects.get().user
+        self.assertFalse(user.has_usable_password())
+
+    def test_existing_password_account_is_not_automatically_linked(self):
+        user = get_user_model().objects.create_user(
+            username="alex@example.test", email="alex@example.test", password="Existing!Pass99",
+        )
+        Account.objects.create(owner=user)
+        with patch("banking.views.id_token.verify_oauth2_token", return_value=self.claims):
+            result = self.client.post("/api/auth/google/", {"credential": "signed-token"})
+        self.assertEqual(result.status_code, 409)
+        self.assertFalse(GoogleIdentity.objects.exists())
+
+    def test_invalid_and_unverified_tokens_are_rejected(self):
+        with patch("banking.views.id_token.verify_oauth2_token", side_effect=ValueError("bad signature")):
+            self.assertEqual(self.client.post("/api/auth/google/", {"credential": "bad"}).status_code, 401)
+        for claims in (
+            {**self.claims, "email_verified": False},
+            {**self.claims, "iss": "https://attacker.example"},
+            {**self.claims, "sub": ""},
+            {**self.claims, "email": "invalid"},
+        ):
+            with patch("banking.views.id_token.verify_oauth2_token", return_value=claims):
+                self.assertEqual(self.client.post("/api/auth/google/", {"credential": "signed-token"}).status_code, 401)
+        self.assertFalse(Account.objects.exists())
+
+    @override_settings(GOOGLE_CLIENT_ID="")
+    def test_configuration_is_optional(self):
+        self.assertEqual(self.client.get("/api/auth/google/config/").data["client_id"], "")
+        self.assertEqual(self.client.post("/api/auth/google/", {"credential": "token"}).status_code, 503)
+
+    def test_inactive_user_and_provider_failure(self):
+        with patch("banking.views.id_token.verify_oauth2_token", return_value=self.claims):
+            self.assertEqual(self.client.post("/api/auth/google/", {"credential": "token"}).status_code, 200)
+            user = GoogleIdentity.objects.get().user
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+            self.assertEqual(self.client.post("/api/auth/google/", {"credential": "token"}).status_code, 403)
+        with patch("banking.views.id_token.verify_oauth2_token", side_effect=TransportError("offline")):
+            self.assertEqual(self.client.post("/api/auth/google/", {"credential": "token"}).status_code, 503)
 
 
 @skipUnless(connection.vendor == "mysql", "Uses real InnoDB row locks")

@@ -15,6 +15,7 @@ def csv(name, default=""):
 
 
 DEBUG = os.getenv("DJANGO_DEBUG", "0" if os.getenv("RENDER") else "1") == "1"
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY") or (
     "django-insecure-local-development-key-never-use-in-production" if DEBUG else ""
 )

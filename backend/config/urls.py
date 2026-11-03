@@ -11,6 +11,8 @@ urlpatterns = [
     path("health/", views.health),
     path("api/auth/register/", views.register),
     path("api/auth/login/", views.login),
+    path("api/auth/google/config/", views.google_config),
+    path("api/auth/google/", views.google_login),
     path("api/auth/logout/", views.logout),
     path("api/dashboard/", views.dashboard),
     path("api/recipient/", views.recipient),

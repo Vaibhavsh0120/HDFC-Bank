@@ -65,3 +65,8 @@ class AccessSession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     digest = models.CharField(max_length=64, unique=True)
     expires_at = models.DateTimeField()
+
+
+class GoogleIdentity(models.Model):
+    subject_hash = models.CharField(max_length=64, unique=True)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

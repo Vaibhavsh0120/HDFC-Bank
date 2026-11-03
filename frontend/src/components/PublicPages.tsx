@@ -1,6 +1,81 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, Eye, EyeOff, History, Landmark, ShieldCheck } from 'lucide-react';
 import { message, request, type Session } from '../lib/banking';
+
+type GoogleApi = {
+  accounts: { id: {
+    initialize: (options: { client_id: string; callback: (response: { credential: string }) => void }) => void;
+    renderButton: (element: HTMLElement, options: { type: string; theme: string; size: string; width: number; text: string }) => void;
+  } };
+};
+
+declare global {
+  interface Window { google?: GoogleApi }
+}
+
+let googleScript: Promise<void> | undefined;
+function loadGoogleScript(): Promise<void> {
+  if (!googleScript) {
+    googleScript = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => { googleScript = undefined; script.remove(); reject(new Error('Google sign-in could not load.')); };
+      document.head.appendChild(script);
+    });
+  }
+  return googleScript;
+}
+
+function GoogleSignIn({ registration, onSession }: { registration: boolean; onSession: (session: Session) => void }) {
+  const element = useRef<HTMLDivElement>(null);
+  const [enabled, setEnabled] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (Capacitor.isNativePlatform() || !window.isSecureContext) return;
+    request<{ client_id: string }>('auth/google/config/').then(async ({ client_id }) => {
+      if (!active || !client_id) return;
+      setEnabled(true);
+      await loadGoogleScript();
+      if (!active || !element.current || !window.google) return;
+      window.google.accounts.id.initialize({
+        client_id,
+        callback: async ({ credential }) => {
+          if (!active) return;
+          setBusy(true);
+          setError('');
+          try {
+            onSession(await request<Session>('auth/google/', { body: { credential } }));
+          } catch (error) {
+            if (active) setError(message(error));
+          } finally {
+            if (active) setBusy(false);
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(element.current, {
+        type: 'standard', theme: 'outline', size: 'large',
+        width: Math.min(element.current.clientWidth || 360, 400),
+        text: registration ? 'signup_with' : 'signin_with',
+      });
+    }).catch(() => {
+      if (active) setError('Google sign-in could not load. Use your email and password or try again later.');
+    });
+    return () => { active = false; };
+  }, [registration, onSession]);
+
+  return <div className="google-sign-in">
+    {enabled && <div className="auth-divider"><span>or</span></div>}
+    <div ref={element} aria-label="Google sign-in" />
+    {busy && <p role="status" className="muted">Signing in with Google…</p>}
+    {error && <p className="feedback error" role="alert">{error}</p>}
+  </div>;
+}
 
 export function Brand() {
   return <a className="brand" href="#home"><img src="/mark.svg" width="38" height="38" alt="" /><span>HDFC Bank</span></a>;
@@ -119,6 +194,7 @@ export function AuthPage({ mode, onSession }: { mode: 'login' | 'register'; onSe
           {error && <p className="feedback error" role="alert">{error}</p>}
           <button className="btn primary w-full" disabled={busy}>{busy ? (registration ? 'Opening account…' : 'Signing in…') : (registration ? 'Open account' : 'Sign in')} <ArrowRight size={17} /></button>
         </form>
+        <GoogleSignIn registration={registration} onSession={onSession} />
         <p className="auth-switch">{registration ? 'Already have an account?' : 'New to HDFC Bank?'} <a href={registration ? '#login' : '#register'}>{registration ? 'Sign in' : 'Open an account'}</a></p>
       </section>
     </main>
