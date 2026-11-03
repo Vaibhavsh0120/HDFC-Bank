@@ -19,7 +19,7 @@ export function EntryList({ entries, onSelect }: { entries: Entry[]; onSelect: (
           <span><strong>{title}</strong><small>{entry.kind === 'transfer' ? 'Internal transfer' : entry.status}</small><small className="entry-mobile-date">{timestamp.format(new Date(entry.created_at))}</small></span>
         </span>
         <span className="entry-date">{timestamp.format(new Date(entry.created_at))}</span>
-        <strong className={credit ? 'positive' : ''}>{credit ? '+' : 'âˆ’'}{money.format(Number(entry.amount))}</strong>
+        <strong className={credit ? 'positive' : ''}>{credit ? '+' : '−'}{money.format(Number(entry.amount))}</strong>
         <ChevronRight size={17} className="muted" />
       </button>;
     })}
@@ -29,7 +29,7 @@ export function EntryList({ entries, onSelect }: { entries: Entry[]; onSelect: (
 export function EntryDetails({ entry }: { entry: Entry }) {
   return <dl className="details">
     <div><dt>Amount</dt><dd>{money.format(Number(entry.amount))}</dd></div>
-    <div><dt>Type</dt><dd>{labels[entry.kind]} Â· {entry.direction === 'credit' ? 'Credit' : 'Debit'}</dd></div>
+    <div><dt>Type</dt><dd>{labels[entry.kind]} · {entry.direction === 'credit' ? 'Credit' : 'Debit'}</dd></div>
     <div><dt>Status</dt><dd className="positive">{entry.status}</dd></div>
     <div><dt>Date and time</dt><dd>{timestamp.format(new Date(entry.created_at))} IST</dd></div>
     {entry.counterparty && <div><dt>{entry.direction === 'credit' ? 'Sender' : 'Recipient'}</dt><dd>{entry.counterparty.name}<small>{entry.counterparty.number}</small></dd></div>}
@@ -80,7 +80,7 @@ export function HistoryPanel({ send, onSelect }: { send: AuthedRequest; onSelect
           <span>Page {page}</span>
           <button className="btn secondary compact" disabled={!state.data.next} onClick={() => setPage(page + 1)} aria-label="Next page"><ArrowRight size={17} /></button></div>
         </div>
-      </> : <p className="panel-message" role="status">Loading transactionsâ€¦</p>}
+      </> : <p className="panel-message" role="status">Loading transactions…</p>}
   </section>;
 }
 
@@ -149,14 +149,14 @@ export function MovementForm({ kind, account, send, onReceipt, close }: {
     <dl className="details">
       <div><dt>Action</dt><dd>{title}</dd></div>
       <div><dt>Amount</dt><dd>{money.format(Number(amount))}</dd></div>
-      <div><dt>Your account</dt><dd>â€¢â€¢â€¢â€¢ {account.number.slice(-4)}</dd></div>
+      <div><dt>Your account</dt><dd>•••• {account.number.slice(-4)}</dd></div>
       {review.recipient && <div><dt>Recipient</dt><dd>{review.recipient.name}<small>{review.recipient.number}</small></dd></div>}
       {description.trim() && <div><dt>Description</dt><dd>{description.trim()}</dd></div>}
     </dl>
     {error && <p className="feedback error" role="alert">{error}{uncertain && ' Retry this confirmation to check the same request.'}</p>}
     <div className="dialog-actions">
       <button className="btn secondary" disabled={busy || uncertain} onClick={() => { setReview(undefined); setError(''); }}>Edit details</button>
-      <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? 'Confirmingâ€¦' : uncertain ? 'Retry confirmation' : 'Confirm ' + labels[kind].toLowerCase()}</button>
+      <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? 'Confirming…' : uncertain ? 'Retry confirmation' : 'Confirm ' + labels[kind].toLowerCase()}</button>
     </div>
   </div>;
 
@@ -166,6 +166,6 @@ export function MovementForm({ kind, account, send, onReceipt, close }: {
     <label>Amount (INR)<input inputMode="decimal" placeholder="0.00" required maxLength={13} value={amount} onChange={e => setAmount(e.target.value)} /></label>
     <label>Description <small>Optional</small><input value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder="Add a note" /></label>
     {error && <p className="feedback error" role="alert">{error}</p>}
-    <button className="btn primary" disabled={busy}>{busy ? 'Checking recipientâ€¦' : 'Review ' + labels[kind].toLowerCase()} <ArrowRight size={17} /></button>
+    <button className="btn primary" disabled={busy}>{busy ? 'Checking recipient…' : 'Review ' + labels[kind].toLowerCase()} <ArrowRight size={17} /></button>
   </form>;
 }

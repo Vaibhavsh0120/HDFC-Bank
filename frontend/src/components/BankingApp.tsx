@@ -37,7 +37,7 @@ function AccountCard({ account }: { account: Account }) {
   return <section className="balance-card">
     <div className="balance-top"><span><Wallet size={18} /> {account.type} account</span><span className={'balance-status ' + (account.status === 'Frozen' ? 'frozen' : '')}><i />{account.status}</span></div>
     <div className="balance-value"><p>Available balance</p><strong>{money.format(Number(account.balance))}</strong></div>
-    <div className="balance-bottom"><div><small>Account number</small><span className="account-number">{revealed ? account.number : 'â€¢â€¢â€¢â€¢ â€¢â€¢â€¢â€¢ ' + account.number.slice(-4)}</span></div>
+    <div className="balance-bottom"><div><small>Account number</small><span className="account-number">{revealed ? account.number : '•••• •••• ' + account.number.slice(-4)}</span></div>
       <div className="card-buttons">
         <button aria-label={revealed ? 'Hide account number' : 'Show account number'} className="card-button" onClick={() => setRevealed(!revealed)}>{revealed ? <EyeOff size={18} /> : <Eye size={18} />}</button>
         <button aria-label="Copy account number" className="card-button" onClick={copy}>{copied.startsWith('Account') ? <Check size={18} /> : <Copy size={17} />}</button>
@@ -111,7 +111,7 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
       <p className="sidebar-label">PERSONAL BANKING</p>
       <nav aria-label="Account navigation">{items.map(({ route, label, icon: Icon }) => <a key={route} href={'#' + route}
         aria-current={section === route ? 'page' : undefined}><Icon size={19} />{label}</a>)}</nav>
-      <button className="sidebar-exit" disabled={exitBusy} onClick={logout}><LogOut size={18} /> {exitBusy ? 'Signing outâ€¦' : 'Sign out'}</button>
+      <button className="sidebar-exit" disabled={exitBusy} onClick={logout}><LogOut size={18} /> {exitBusy ? 'Signing out…' : 'Sign out'}</button>
     </aside>
     <div className="app-content">
       <header className="app-header">
@@ -124,7 +124,7 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
       <main className="dashboard">
         {exitError && <p className="feedback error" role="alert">{exitError}</p>}
         {loadError && <div className="feedback error flex items-center justify-between gap-3" role="alert"><span>{loadError}</span><button className="btn secondary compact" onClick={() => { setLoadError(''); setRefresh(value => value + 1); }}>Retry</button></div>}
-        {!data && !loadError && <p className="panel panel-message" role="status">Loading your accountâ€¦</p>}
+        {!data && !loadError && <p className="panel panel-message" role="status">Loading your account…</p>}
         {data && <>
           {section === 'overview' && <>
             <div className="page-heading"><p className="eyebrow">ACCOUNT OVERVIEW</p><h1>Welcome, {data.account.name.split(/\s+/)[0]}</h1><p>See your balance and manage your savings.</p></div>
@@ -159,7 +159,7 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
             <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} />
           </Modal>}
           {statement && <Modal title="Mini-statement" close={() => setStatement(false)}>
-            <p className="muted statement-note">Latest 10 transactions Â· Account ending {data.account.number.slice(-4)}</p>
+            <p className="muted statement-note">Latest 10 transactions · Account ending {data.account.number.slice(-4)}</p>
             <EntryList entries={data.recent} onSelect={entry => { setStatement(false); setSelected(entry); }} />
           </Modal>}
           {selected && <Modal title="Transaction details" close={() => setSelected(undefined)}><EntryDetails entry={selected} /></Modal>}
