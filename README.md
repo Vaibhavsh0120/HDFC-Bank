@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/mark.svg" width="64" height="64" alt="HDFC Bank mark" />
+<img src="frontend/public/social-card.png" width="800" alt="HDFC Bank — Your savings. Always in view." />
 
 # HDFC Bank
 
@@ -8,7 +8,7 @@
 
 Personal banking built with Django, Astro and React.
 
-[Open the website](https://hdfc-bank-web.onrender.com) Â· [Mobile releases](../../releases) Â· [Report an issue](../../issues)
+[Open the website](https://hdfc-bank-web.onrender.com) · [Mobile releases](https://github.com/Vaibhavsh0120/HDFC-Bank/releases) · [Report an issue](https://github.com/Vaibhavsh0120/HDFC-Bank/issues)
 
 </div>
 
@@ -54,7 +54,7 @@ Accounts and funds are fictional. This independent student project has no affili
    npm run dev
    ```
 
-Open the local address printed by Astro. Development uses SQLite by default. Copy `backend/.env.example` to `backend/.env` to use MySQL and `frontend/.env.example` to `frontend/.env` to change the API address. These files configure the individual local apps. The root `.env` is a separate deployment backup restored from `.env.age`.
+Open the local address printed by Astro. A fresh setup uses SQLite and the local API by default. Copy the example environment file in each app directory to `.env`. The encrypted deployment backups contain production settings, so restoring them connects to the hosted services.
 
 ## Testing
 
@@ -75,13 +75,13 @@ For local MySQL, `docker compose up -d` starts the database in `compose.yaml`. S
 
 ## Mobile builds
 
-In GitHub, open **Actions â†’ Mobile release â†’ Run workflow**. Choose Android, iOS or both, enter a version such as `1.0.0`, and choose whether to publish a release. The workflow uses the `PUBLIC_API_URL` repository variable.
+In GitHub, open **Actions → Mobile release → Run workflow**. Choose Android, iOS or both, enter a version such as `1.0.0`, and choose whether to publish a release. The workflow uses the `PUBLIC_API_URL` repository variable.
 
 The Android APK is debug-signed. The iOS IPA is unsigned and requires Apple signing and provisioning before installation. Build artifacts are also available from the workflow run.
 
 ## Encrypted environment
 
-The repository contains `.env.age`, encrypted with the configured age recipient. Run `ageu` in the project root to restore `.env`, and `agel` after updating it. Keep the age identity private and outside Git.
+The repository contains `backend/.env.age` and `frontend/.env.age`, encrypted with the configured age recipient. Run `ageu` inside the relevant app directory to restore its `.env`, and `agel` there after updating it. The backend backup holds the database connection, certificate, Django secret and admin credentials. The frontend backup holds the hosted API origin. Keep the age identity private and outside Git.
 
 ## How transactions stay consistent
 

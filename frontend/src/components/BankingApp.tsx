@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, ArrowUpRight, Check, Copy, Eye, EyeOff, History, LayoutGrid, LogOut, UserRound, Wallet, X } from 'lucide-react';
 import { ApiError, message, money, request, timestamp, type Account, type Dashboard, type Entry, type Kind, type Receipt, type Session } from '../lib/banking';
 import { AuthPage, Brand, Landing, Notice } from './PublicPages';
-import { EntryDetails, EntryList, HistoryPanel, MovementForm } from './Transactions';
+import { EntryDetails, EntryList, HistoryPanel, MovementForm, pendingMovements, type PendingMovement } from './Transactions';
 
 const sessionKey = 'hdfc.access';
 const items = [
@@ -68,6 +68,21 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
   const [action, setAction] = useState<Kind>();
   const [selected, setSelected] = useState<Entry>();
   const [statement, setStatement] = useState(false);
+  const [pending, setPending] = useState<PendingMovement[]>([]);
+  const [resuming, setResuming] = useState<PendingMovement>();
+  const refreshPending = useCallback(() => {
+    if (!data) return;
+    try {
+      setPending(pendingMovements(data.account.number));
+    } catch {
+      setPending([]);
+    }
+  }, [data?.account.number]);
+  useEffect(() => {
+    refreshPending();
+    window.addEventListener('storage', refreshPending);
+    return () => window.removeEventListener('storage', refreshPending);
+  }, [refreshPending]);
   const send = useCallback(async <T,>(path: string, body?: object) => {
     try {
       return await request<T>(path, { token, body });
@@ -126,6 +141,14 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
         {loadError && <div className="feedback error flex items-center justify-between gap-3" role="alert"><span>{loadError}</span><button className="btn secondary compact" onClick={() => { setLoadError(''); setRefresh(value => value + 1); }}>Retry</button></div>}
         {!data && !loadError && <p className="panel panel-message" role="status">Loading your account…</p>}
         {data && <>
+          {pending.length > 0 && <section className="feedback pending-notice" aria-label="Pending transactions">
+            <strong>Transaction awaiting confirmation</strong>
+            <p>Check the result before creating another request for the same transaction.</p>
+            {pending.map(item => <button className="btn secondary compact" key={item.instruction.request_id} onClick={() => {
+              setResuming(item);
+              setAction(item.instruction.kind);
+            }}>Review {item.instruction.kind} · {money.format(Number(item.instruction.amount))}</button>)}
+          </section>}
           {section === 'overview' && <>
             <div className="page-heading"><p className="eyebrow">ACCOUNT OVERVIEW</p><h1>Welcome, {data.account.name.split(/\s+/)[0]}</h1><p>See your balance and manage your savings.</p></div>
             <div className="account-grid">
@@ -134,9 +157,9 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
                 <h2>Quick actions</h2><p>Manage funds in your savings account.</p>
                 {data.account.status === 'Frozen' && <p className="feedback error">Transactions are unavailable while this account is frozen.</p>}
                 <div className="quick-grid">
-                  <button disabled={data.account.status !== 'Active'} onClick={() => setAction('deposit')}><span className="icon-box"><ArrowDownToLine size={19} /></span>Deposit</button>
-                  <button disabled={data.account.status !== 'Active'} onClick={() => setAction('withdraw')}><span className="icon-box"><ArrowUpFromLine size={19} /></span>Withdraw</button>
-                  <button disabled={data.account.status !== 'Active'} onClick={() => setAction('transfer')}><span className="icon-box"><ArrowLeftRight size={19} /></span>Transfer</button>
+                  <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('deposit'); }}><span className="icon-box"><ArrowDownToLine size={19} /></span>Deposit</button>
+                  <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('withdraw'); }}><span className="icon-box"><ArrowUpFromLine size={19} /></span>Withdraw</button>
+                  <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('transfer'); }}><span className="icon-box"><ArrowLeftRight size={19} /></span>Transfer</button>
                 </div>
               </section>
             </div>
@@ -156,7 +179,7 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
             <Profile account={data.account} />
           </>}
           {action && <Modal title={action === 'deposit' ? 'Deposit funds' : action === 'withdraw' ? 'Withdraw funds' : 'Transfer funds'} close={() => setAction(undefined)}>
-            <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} />
+            <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} pending={resuming} onPendingChange={refreshPending} />
           </Modal>}
           {statement && <Modal title="Mini-statement" close={() => setStatement(false)}>
             <p className="muted statement-note">Latest 10 transactions · Account ending {data.account.number.slice(-4)}</p>

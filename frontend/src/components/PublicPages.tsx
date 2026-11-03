@@ -107,7 +107,7 @@ export function AuthPage({ mode, onSession }: { mode: 'login' | 'register'; onSe
           <label>Email address<input type="email" name="email" placeholder="name@example.com" autoComplete="username" maxLength={150} required /></label>
           <label>Password
             <span className="password-field">
-              <input type={visible ? 'text' : 'password'} name="password" placeholder="Enter password"
+              <input type={visible ? 'text' : 'password'} name="password" aria-label="Password" placeholder="Enter password"
                 autoComplete={registration ? 'new-password' : 'current-password'} required
                 minLength={registration ? 8 : undefined} maxLength={128} />
               <button type="button" className="password-toggle" aria-label={visible ? 'Hide password' : 'Show password'} onClick={() => setVisible(!visible)}>

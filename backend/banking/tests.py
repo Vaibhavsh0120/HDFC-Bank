@@ -14,7 +14,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from .models import AccessSession, Account, Entry
-from .services import Instruction, InsufficientFunds, post_entry
+from .services import BankingError, Instruction, InsufficientFunds, post_entry
 from .structures import CircularBuffer, merge_ordered
 
 
@@ -107,6 +107,18 @@ class BankingTests(APITestCase):
         self.assertEqual(self.client.get("/api/history/", {"kind": "deposit"}).data["count"], 0)
         self.assertEqual(Entry.objects.count(), 3)
 
+    def test_retry_after_account_freeze_returns_original_entry(self):
+        self.authorize(self.alice)
+        request_id = str(uuid4())
+        first = self.move("deposit", "20", request_id=request_id)
+        Account.objects.filter(owner__username="alice@example.test").update(status=Account.Status.FROZEN)
+        repeated = self.move("deposit", "20", request_id=request_id)
+        self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(repeated.data["entry"], first.data["entry"])
+        self.assertEqual(repeated.data["account"]["status"], "Frozen")
+        self.assertEqual(repeated.data["account"]["balance"], "20.00")
+        self.assertEqual(Entry.objects.count(), 1)
+
     def test_transfer_rolls_back_when_recipient_cannot_accept_credit(self):
         self.authorize(self.alice)
         self.move("deposit", "100")
@@ -127,6 +139,33 @@ class BankingTests(APITestCase):
         target.refresh_from_db()
         self.assertEqual((source.balance, target.balance), (Decimal("20"), Decimal("0")))
         self.assertFalse(Entry.objects.exists())
+
+    def test_service_rejects_invalid_instructions_without_mutating_balance(self):
+        source, target = Account.objects.order_by("pk")
+        source.balance = Decimal("100.00")
+        source.save(update_fields=["balance"])
+        instructions = [
+            Instruction("deposit", Decimal("-1"), uuid4()),
+            Instruction("withdraw", Decimal("NaN"), uuid4()),
+            Instruction("deposit", Decimal("0.001"), uuid4()),
+            Instruction("deposit", Decimal("10000000000"), uuid4()),
+            Instruction("transfer", Decimal("1"), uuid4()),
+            Instruction("deposit", Decimal("1"), uuid4(), recipient_id=target.pk),
+            Instruction("unknown", Decimal("1"), uuid4()),
+        ]
+        for instruction in instructions:
+            with self.subTest(instruction=instruction), self.assertRaises(BankingError):
+                post_entry(source.pk, instruction)
+        source.refresh_from_db()
+        self.assertEqual(source.balance, Decimal("100.00"))
+        self.assertFalse(Entry.objects.exists())
+
+    def test_private_api_responses_are_not_cached(self):
+        self.authorize(self.alice)
+        for path in ("/api/dashboard/", "/api/history/"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("no-store", response["Cache-Control"])
 
     def test_mini_statement_bounds_and_merges_directions(self):
         source, target = Account.objects.order_by("pk")
@@ -177,4 +216,26 @@ class ConcurrencyTests(TransactionTestCase):
             self.assertCountEqual(pool.map(lambda _: attempt(), range(2)), ["posted", "declined"])
         account.refresh_from_db()
         self.assertEqual(account.balance, Decimal("10"))
+        self.assertEqual(Entry.objects.count(), 1)
+
+    def test_concurrent_retries_post_once(self):
+        owner = get_user_model().objects.create(username="retry")
+        account = Account.objects.create(owner=owner, balance=Decimal("0"))
+        request_id = uuid4()
+        gate = Barrier(2)
+
+        def attempt():
+            try:
+                gate.wait(timeout=10)
+                entry, created = post_entry(account.pk, Instruction("deposit", Decimal("40"), request_id))
+                return entry.reference, created
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda _: attempt(), range(2)))
+        self.assertEqual(results[0][0], results[1][0])
+        self.assertCountEqual([created for _, created in results], [True, False])
+        account.refresh_from_db()
+        self.assertEqual(account.balance, Decimal("40"))
         self.assertEqual(Entry.objects.count(), 1)
