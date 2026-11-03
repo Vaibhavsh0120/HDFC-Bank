@@ -16,7 +16,7 @@ if (!existsSync(platform)) {
 }
 cap('sync', platform);
 
-const icon = readFileSync('public/mark.svg', 'utf8').replace(' rx="16"', '');
+const icon = readFileSync('public/mark.svg');
 if (platform === 'android') {
   const gradle = 'android/app/build.gradle';
   const build = readFileSync(gradle, 'utf8')
@@ -27,15 +27,24 @@ if (platform === 'android') {
   const resources = 'android/app/src/main/res';
   const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
   for (const [density, size] of Object.entries(densities)) {
-    for (const name of ['ic_launcher', 'ic_launcher_round', 'ic_launcher_foreground']) {
+    for (const name of ['ic_launcher', 'ic_launcher_round']) {
       const file = `${resources}/mipmap-${density}/${name}.png`;
-      if (existsSync(file)) await sharp(Buffer.from(icon)).resize(size, size).png().toFile(file);
+      if (existsSync(file)) await sharp(icon).resize(size, size).png().toFile(file);
     }
+    // Adaptive foregrounds use a 108dp canvas with artwork inside the 66dp safe zone.
+    const canvasSize = Math.round(size * 108 / 48);
+    const artworkSize = Math.round(size * 66 / 48);
+    const artwork = await sharp(icon).resize(artworkSize, artworkSize).png().toBuffer();
+    await sharp({
+      create: { width: canvasSize, height: canvasSize, channels: 4, background: '#00000000' },
+    }).composite([{ input: artwork, gravity: 'centre' }]).png()
+      .toFile(`${resources}/mipmap-${density}/ic_launcher_foreground.png`);
   }
   for (const file of ['ic_launcher.xml', 'ic_launcher_round.xml']) {
     const path = `${resources}/mipmap-anydpi-v26/${file}`;
     if (existsSync(path)) {
-      writeFileSync(path, readFileSync(path, 'utf8').replace(/@drawable\/ic_launcher_background/g, '@color/bank_launcher_background'));
+      writeFileSync(path, readFileSync(path, 'utf8')
+        .replace(/@(?:drawable|color)\/ic_launcher_background/g, '@color/bank_launcher_background'));
     }
   }
   writeFileSync(`${resources}/values/bank.xml`, '<resources><color name="bank_launcher_background">#132a57</color></resources>\n');
@@ -44,7 +53,7 @@ if (platform === 'android') {
   for (const file of readdirSync(folder).filter(name => name.endsWith('.png'))) {
     const path = `${folder}/${file}`;
     const { width, height } = await sharp(path).metadata();
-    await sharp(Buffer.from(icon)).resize(width, height).removeAlpha().png().toFile(path);
+    await sharp(icon).resize(width, height).flatten({ background: '#132a57' }).png().toFile(path);
   }
 }
 

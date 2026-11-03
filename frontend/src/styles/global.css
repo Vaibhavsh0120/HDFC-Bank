@@ -93,6 +93,9 @@ input::placeholder { color: #65748b; }
 .password-field input { padding-right: 49px; }
 .password-toggle { display: grid; place-items: center; width: 44px; height: 44px; position: absolute; top: 1px; right: 1px; color: var(--muted); }
 .feedback { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.pending-notice { margin-bottom: 18px; background: #fff8e8; border-color: #e8d29e; color: #63470a; }
+.pending-notice p { margin: 4px 0 10px; }
+.pending-notice .btn { margin: 0 8px 4px 0; }
 .feedback.error { border-color: #f0c8cb; color: #8a262e; background: #fff5f5; }
 .session-notice { background: #edf3ff; color: var(--navy); text-align: center; padding: 9px; font-size: 13px; }
 

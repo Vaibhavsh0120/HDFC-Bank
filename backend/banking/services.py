@@ -9,6 +9,7 @@ from .models import Account, Entry
 from .structures import CircularBuffer, merge_ordered
 
 MAX_BALANCE = Decimal("999999999999.99")
+MAX_TRANSACTION = Decimal("9999999999.99")
 
 
 class BankingError(Exception):
@@ -81,6 +82,23 @@ def recipient_for(source_id, number):
 @transaction.atomic
 def post_entry(source_id, instruction):
     target_id = instruction.recipient_id
+    if instruction.kind not in MOVEMENTS:
+        raise BankingError("Unknown transaction type.")
+    if (instruction.kind == Entry.Kind.TRANSFER) != (target_id is not None):
+        raise BankingError("A recipient is required only for transfers.")
+    amount = instruction.amount
+    if (
+        not isinstance(amount, Decimal)
+        or not amount.is_finite()
+        or amount <= 0
+        or amount > MAX_TRANSACTION
+        or amount.as_tuple().exponent < -2
+    ):
+        raise BankingError("Enter a valid amount with at most two decimal places.")
+    if not isinstance(instruction.request_id, UUID):
+        raise BankingError("A valid request reference is required.")
+    if not isinstance(instruction.description, str) or len(instruction.description) > 140:
+        raise BankingError("The description must be at most 140 characters.")
     if source_id == target_id:
         raise AccountUnavailable("Choose an account other than your own.")
     ids = {source_id} if target_id is None else {source_id, target_id}

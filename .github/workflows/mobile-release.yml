@@ -126,7 +126,8 @@ jobs:
   publish:
     if: >-
       always() && inputs.publish && needs.prepare.result == 'success' &&
-      (needs.android.result == 'success' || needs.ios.result == 'success')
+      (inputs.platform == 'ios' || needs.android.result == 'success') &&
+      (inputs.platform == 'android' || needs.ios.result == 'success')
     needs: [prepare, android, ios]
     runs-on: ubuntu-latest
     permissions:
@@ -144,8 +145,8 @@ jobs:
           set -euo pipefail
           tag="v$VERSION"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" artifacts/* --clobber
-          else
-            gh release create "$tag" artifacts/* --target "$GITHUB_SHA" --title "HDFC Bank $VERSION" \
-              --notes 'Android APKs are debug-signed. The iOS device IPA is unsigned and requires Apple signing and provisioning before installation. See the README for setup.'
+            echo "::error::Release $tag already exists. Choose a new version."
+            exit 1
           fi
+          gh release create "$tag" artifacts/* --target "$GITHUB_SHA" --title "HDFC Bank $VERSION" \
+            --notes 'Android APKs are debug-signed. The iOS device IPA is unsigned and requires Apple signing and provisioning before installation. See the README for setup.'

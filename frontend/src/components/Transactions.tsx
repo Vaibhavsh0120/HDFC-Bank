@@ -4,6 +4,31 @@ import { ApiError, message, money, timestamp, type Account, type Entry, type His
 
 export type AuthedRequest = <T>(path: string, body?: object) => Promise<T>;
 export const labels: Record<Kind, string> = { deposit: 'Deposit', withdraw: 'Withdrawal', transfer: 'Transfer' };
+export type PendingMovement = { instruction: Instruction; recipient?: Recipient };
+
+const pendingPrefix = 'hdfc.pending.';
+
+export function pendingMovements(accountNumber: string): PendingMovement[] {
+  const prefix = pendingPrefix + accountNumber + '.';
+  const entries: PendingMovement[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(prefix)) continue;
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || '');
+      if (value?.instruction?.request_id && value?.instruction?.kind && value?.instruction?.amount) {
+        entries.push(value);
+      }
+    } catch {
+      // A malformed local record must not prevent the account from loading.
+    }
+  }
+  return entries;
+}
+
+function pendingKey(accountNumber: string, requestId: string) {
+  return pendingPrefix + accountNumber + '.' + requestId;
+}
 
 export function EntryList({ entries, onSelect }: { entries: Entry[]; onSelect: (entry: Entry) => void }) {
   if (!entries.length) return <div className="empty"><span className="icon-box"><Wallet size={22} /></span><strong>No transactions to show</strong><p>Account activity will appear here.</p></div>;
@@ -84,16 +109,17 @@ export function HistoryPanel({ send, onSelect }: { send: AuthedRequest; onSelect
   </section>;
 }
 
-export function MovementForm({ kind, account, send, onReceipt, close }: {
+export function MovementForm({ kind, account, send, onReceipt, close, pending, onPendingChange }: {
   kind: Kind; account: Account; send: AuthedRequest; onReceipt: (receipt: Receipt) => void; close: () => void;
+  pending?: PendingMovement; onPendingChange: () => void;
 }) {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(pending?.instruction.amount ?? '');
   const [recipient, setRecipient] = useState('');
-  const [description, setDescription] = useState('');
-  const [review, setReview] = useState<{ instruction: Instruction; recipient?: Recipient }>();
+  const [description, setDescription] = useState(pending?.instruction.description ?? '');
+  const [review, setReview] = useState<PendingMovement | undefined>(pending);
   const [receipt, setReceipt] = useState<Receipt>();
   const [busy, setBusy] = useState(false);
-  const [uncertain, setUncertain] = useState(false);
+  const [uncertain, setUncertain] = useState(!!pending);
   const [error, setError] = useState('');
   const title = kind === 'deposit' ? 'Deposit funds' : kind === 'withdraw' ? 'Withdraw funds' : 'Transfer funds';
 
@@ -126,12 +152,28 @@ export function MovementForm({ kind, account, send, onReceipt, close }: {
     if (!review || busy) return;
     setBusy(true);
     setError('');
+    const key = pendingKey(account.number, review.instruction.request_id);
+    try {
+      localStorage.setItem(key, JSON.stringify(review));
+      onPendingChange();
+    } catch {
+      setError('This device could not save the transaction request. Check your browser storage settings and try again.');
+      setBusy(false);
+      return;
+    }
     try {
       const result = await send<Receipt>('movements/', review.instruction);
+      localStorage.removeItem(key);
+      onPendingChange();
       setReceipt(result);
       onReceipt(result);
     } catch (error) {
-      setUncertain(error instanceof ApiError && (error.status === 0 || error.status >= 500));
+      const unknown = !(error instanceof ApiError) || error.status === 0 || error.status === 401 || error.status === 408 || error.status >= 500;
+      setUncertain(unknown);
+      if (!unknown) {
+        localStorage.removeItem(key);
+        onPendingChange();
+      }
       setError(message(error));
     } finally {
       setBusy(false);
@@ -145,7 +187,7 @@ export function MovementForm({ kind, account, send, onReceipt, close }: {
   </div>;
 
   if (review) return <div className="form-stack">
-    <p className="muted">Check the details before confirming.</p>
+    <p className="muted">{uncertain ? 'The result is not yet confirmed. Retry to check this same request.' : 'Check the details before confirming.'}</p>
     <dl className="details">
       <div><dt>Action</dt><dd>{title}</dd></div>
       <div><dt>Amount</dt><dd>{money.format(Number(amount))}</dd></div>
