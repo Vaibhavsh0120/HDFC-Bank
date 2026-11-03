@@ -29,6 +29,10 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(max_length=128, trim_whitespace=False)
 
 
+class GoogleCredentialSerializer(serializers.Serializer):
+    credential = serializers.CharField(max_length=16384, trim_whitespace=False)
+
+
 class InstructionSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=Entry.Kind.choices)
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))

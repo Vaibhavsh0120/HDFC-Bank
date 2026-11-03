@@ -128,6 +128,8 @@ The backend deployment uses `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED
 
 On the configured machine, run `ageu` inside the relevant app directory to decrypt its backup. Run `agel` there after updating its plaintext `.env`. Keep the age identity private and outside the repository.
 
+For Google sign-in, set `GOOGLE_CLIENT_ID` on the backend to a Google web OAuth client ID and authorize the frontend HTTPS origin in Google Cloud. Sign-in is available on secure web origins. Native WebViews and plain HTTP LAN origins use password sign-in. Google identities are not automatically linked to existing password accounts because password registration does not verify email ownership.
+
 **Restoring the encrypted backups gives the apps their hosted configuration.** Use the local scripts or the example files for local development, and take care not to run tests or migrations against the hosted database unintentionally.
 
 ## Deployment
