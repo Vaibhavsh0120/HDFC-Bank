@@ -54,7 +54,7 @@ Accounts and funds are fictional. This independent student project has no affili
    npm run dev
    ```
 
-Open the local address printed by Astro. Development uses SQLite by default. Copy `backend/.env.example` to `backend/.env` to use MySQL and `frontend/.env.example` to `frontend/.env` to change the API address.
+Open the local address printed by Astro. Development uses SQLite by default. Copy `backend/.env.example` to `backend/.env` to use MySQL and `frontend/.env.example` to `frontend/.env` to change the API address. These files configure the individual local apps. The root `.env` is a separate deployment backup restored from `.env.age`.
 
 ## Testing
 
