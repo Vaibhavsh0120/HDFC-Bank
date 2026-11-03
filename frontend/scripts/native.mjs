@@ -20,8 +20,8 @@ const icon = readFileSync('public/mark.svg', 'utf8').replace(' rx="16"', '');
 if (platform === 'android') {
   const gradle = 'android/app/build.gradle';
   const build = readFileSync(gradle, 'utf8')
-    .replace(/^\s*versionCode 1$/m, '\n        versionCode (project.findProperty("bankVersionCode") ?: "1").toInteger()')
-    .replace(/^\s*versionName "1.0"$/m, '\n        versionName project.findProperty("bankVersion") ?: "1.0.0"');
+    .replace(/^\s*versionCode 1$/m, '\n        versionCode((project.findProperty("bankVersionCode") ?: "1").toInteger())')
+    .replace(/^\s*versionName "1.0"$/m, '\n        versionName(project.findProperty("bankVersion") ?: "1.0.0")');
   if (!build.includes('bankVersionCode')) throw new Error('Android version configuration was not applied.');
   writeFileSync(gradle, build);
   const resources = 'android/app/src/main/res';
@@ -47,3 +47,4 @@ if (platform === 'android') {
     await sharp(Buffer.from(icon)).resize(width, height).removeAlpha().png().toFile(path);
   }
 }
+
