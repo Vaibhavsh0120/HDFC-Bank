@@ -1,4 +1,6 @@
 import os
+import base64
+import tempfile
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -54,6 +56,10 @@ TEMPLATES = [{
 if host := os.getenv("DB_HOST"):
     options = {"init_command": "SET sql_mode='STRICT_TRANS_TABLES'", "connect_timeout": 5}
     ca = os.getenv("DB_SSL_CA")
+    if certificate := os.getenv("DB_SSL_CA_BASE64"):
+        with tempfile.NamedTemporaryFile(prefix="bank-ca-", suffix=".pem", delete=False) as ca_file:
+            ca_file.write(base64.b64decode(certificate, validate=True))
+            ca = ca_file.name
     if not DEBUG and not ca:
         raise ImproperlyConfigured("Set DB_SSL_CA to the MySQL CA certificate path.")
     if ca:
