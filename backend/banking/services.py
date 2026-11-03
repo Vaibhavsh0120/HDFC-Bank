@@ -1,0 +1,128 @@
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from decimal import Decimal
+from uuid import UUID
+
+from django.db import transaction
+
+from .models import Account, Entry
+from .structures import CircularBuffer, merge_ordered
+
+MAX_BALANCE = Decimal("999999999999.99")
+
+
+class BankingError(Exception):
+    status = 400
+
+
+class InsufficientFunds(BankingError):
+    pass
+
+
+class AccountUnavailable(BankingError):
+    pass
+
+
+class DuplicateRequest(BankingError):
+    status = 409
+
+
+@dataclass(frozen=True)
+class Instruction:
+    kind: str
+    amount: Decimal
+    request_id: UUID
+    description: str = ""
+    recipient_id: int | None = None
+
+
+class Movement(ABC):
+    @abstractmethod
+    def changes(self, source, target, amount):
+        """Return account and signed balance change pairs."""
+
+
+class Deposit(Movement):
+    def changes(self, source, target, amount):
+        return ((source, amount),)
+
+
+class Withdrawal(Movement):
+    def changes(self, source, target, amount):
+        return ((source, -amount),)
+
+
+class Transfer(Movement):
+    def changes(self, source, target, amount):
+        return ((source, -amount), (target, amount))
+
+
+MOVEMENTS = {"deposit": Deposit(), "withdraw": Withdrawal(), "transfer": Transfer()}
+
+
+def account_id(number):
+    if len(number) != 12 or not number.startswith("90") or not number.isascii() or not number.isdecimal():
+        raise AccountUnavailable("Enter a valid 12-digit account number.")
+    return int(number[2:])
+
+
+def recipient_for(source_id, number):
+    target_id = account_id(number)
+    if target_id == source_id:
+        raise AccountUnavailable("Choose an account other than your own.")
+    target = Account.objects.select_related("owner").filter(
+        pk=target_id, status=Account.Status.ACTIVE, owner__is_active=True,
+    ).first()
+    if target is None:
+        raise AccountUnavailable("This recipient account is unavailable.")
+    return target
+
+
+@transaction.atomic
+def post_entry(source_id, instruction):
+    target_id = instruction.recipient_id
+    if source_id == target_id:
+        raise AccountUnavailable("Choose an account other than your own.")
+    ids = {source_id} if target_id is None else {source_id, target_id}
+    accounts = {}
+    # Point locks acquired in the same order for every operation.
+    for pk in sorted(ids):
+        account = Account.objects.select_for_update().filter(pk=pk).first()
+        if account is not None:
+            accounts[pk] = account
+    existing = Entry.objects.filter(initiator_id=source_id, request_id=instruction.request_id).first()
+    if existing:
+        if (existing.kind, existing.amount, existing.recipient_id, existing.description) != (
+            instruction.kind, instruction.amount, target_id, instruction.description,
+        ):
+            raise DuplicateRequest("This request reference already belongs to another transaction.")
+        return existing, False
+    if accounts.keys() != ids or any(a.status != Account.Status.ACTIVE for a in accounts.values()):
+        raise AccountUnavailable("One of the accounts is unavailable for transactions.")
+    if target_id is not None and not accounts[target_id].owner.is_active:
+        raise AccountUnavailable("The recipient account is unavailable.")
+
+    changes = MOVEMENTS[instruction.kind].changes(accounts[source_id], accounts.get(target_id), instruction.amount)
+    for account, delta in changes:
+        account.balance += delta
+        if account.balance < 0:
+            raise InsufficientFunds("Your available balance is too low for this transaction.")
+        if account.balance > MAX_BALANCE:
+            raise BankingError("This transaction would exceed the account balance limit.")
+        account.save(update_fields=["balance"])
+    entry = Entry.objects.create(
+        initiator_id=source_id, recipient_id=target_id, kind=instruction.kind,
+        amount=instruction.amount, description=instruction.description,
+        request_id=instruction.request_id,
+    )
+    return entry, True
+
+
+def mini_statement(account, limit=10):
+    fields = ("initiator__owner", "recipient__owner")
+    outgoing = list(account.outgoing.select_related(*fields)[:limit])
+    incoming = list(account.incoming.select_related(*fields)[:limit])
+    recent = CircularBuffer(limit)
+    for entry in merge_ordered(reversed(outgoing), reversed(incoming), key=lambda row: (row.created_at, row.pk)):
+        recent.append(entry)
+    return list(reversed(list(recent)))

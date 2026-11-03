@@ -1,0 +1,151 @@
+name: Mobile release
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platforms to build
+        type: choice
+        options: [both, android, ios]
+        default: both
+      version:
+        description: Release version (e.g. 1.0.0)
+        type: string
+        required: true
+      publish:
+        description: Publish requested artifacts to GitHub Releases
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+  PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version-code: ${{ steps.validate.outputs.version-code }}
+    steps:
+      - id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ || "$VERSION" == 0.0.0 ]]; then
+            echo "::error::Enter MAJOR.MINOR.PATCH with each component from 0 to 999 and version greater than 0.0.0."
+            exit 1
+          fi
+          if [[ ! "$PUBLIC_API_URL" =~ ^https://[a-zA-Z0-9][a-zA-Z0-9.-]+/?$ ]]; then
+            echo "::error::Set the PUBLIC_API_URL repository variable to the deployed API HTTPS origin."
+            exit 1
+          fi
+          IFS=. read -r major minor patch <<< "$VERSION"
+          echo "version-code=$((major * 1000000 + minor * 1000 + patch))" >> "$GITHUB_OUTPUT"
+
+  android:
+    if: inputs.platform != 'ios'
+    needs: prepare
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: frontend/package-lock.json
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+      - run: npm ci && npm run build
+      - run: npm run native:android
+      - name: Build installable APK
+        working-directory: frontend/android
+        env:
+          VERSION_CODE: ${{ needs.prepare.outputs.version-code }}
+        run: |
+          ./gradlew assembleDebug -PbankVersion="$VERSION" -PbankVersionCode="$VERSION_CODE"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/artifacts/HDFC-Bank-$VERSION-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: artifacts/*.apk
+          if-no-files-found: error
+
+  ios:
+    if: inputs.platform != 'android'
+    needs: prepare
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci && npm run build
+      - run: npm run native:ios
+      - name: Compile and package unsigned device app
+        env:
+          VERSION_CODE: ${{ needs.prepare.outputs.version-code }}
+        run: |
+          set -euo pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/bank-ios" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION_CODE" build
+          mkdir -p "$RUNNER_TEMP/bank-ipa/Payload" "$GITHUB_WORKSPACE/artifacts"
+          cp -R "$RUNNER_TEMP/bank-ios/Build/Products/Release-iphoneos/App.app" "$RUNNER_TEMP/bank-ipa/Payload/"
+          cd "$RUNNER_TEMP/bank-ipa"
+          zip -qry "$GITHUB_WORKSPACE/artifacts/HDFC-Bank-$VERSION-ios-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: artifacts/*.ipa
+          if-no-files-found: error
+
+  publish:
+    if: >-
+      always() && inputs.publish && needs.prepare.result == 'success' &&
+      (needs.android.result == 'success' || needs.ios.result == 'success')
+    needs: [prepare, android, ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish mobile packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/* --clobber
+          else
+            gh release create "$tag" artifacts/* --target "$GITHUB_SHA" --title "HDFC Bank $VERSION" \
+              --notes 'Android APKs are debug-signed. The iOS device IPA is unsigned and requires Apple signing and provisioning before installation. See the README for setup.'
+          fi
