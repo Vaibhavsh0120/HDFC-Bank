@@ -109,7 +109,7 @@ jobs:
           VERSION_CODE: ${{ needs.prepare.outputs.version-code }}
         run: |
           set -euo pipefail
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/bank-ios" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION_CODE" build
