@@ -12,7 +12,7 @@ function cap(...args) {
 }
 
 if (!existsSync(platform)) {
-  cap('add', platform, ...(platform === 'ios' ? ['--packagemanager', 'SPM'] : []));
+  cap('add', platform);
 }
 cap('sync', platform);
 
