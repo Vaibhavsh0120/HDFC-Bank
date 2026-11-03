@@ -82,7 +82,7 @@ export function Brand() {
 }
 
 export function Notice() {
-  return <p className="notice">Fictional accounts · Virtual funds · Independent student project</p>;
+  return <p className="notice">Fictional accounts · Virtual funds · Independent student project · <a href="/privacy/">Privacy</a></p>;
 }
 
 export function PublicHeader() {
