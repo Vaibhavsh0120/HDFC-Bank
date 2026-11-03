@@ -168,7 +168,7 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
       setReceipt(result);
       onReceipt(result);
     } catch (error) {
-      const unknown = !(error instanceof ApiError) || error.status === 0 || error.status === 401 || error.status === 408 || error.status >= 500;
+      const unknown = uncertain || !(error instanceof ApiError) || error.status === 0 || error.status === 401 || error.status === 408 || error.status >= 500;
       setUncertain(unknown);
       if (!unknown) {
         localStorage.removeItem(key);
