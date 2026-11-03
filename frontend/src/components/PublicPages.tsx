@@ -7,7 +7,7 @@ export function Brand() {
 }
 
 export function Notice() {
-  return <p className="notice">Fictional accounts Â· Virtual funds Â· Independent student project</p>;
+  return <p className="notice">Fictional accounts · Virtual funds · Independent student project</p>;
 }
 
 export function PublicHeader() {
@@ -117,7 +117,7 @@ export function AuthPage({ mode, onSession }: { mode: 'login' | 'register'; onSe
             {registration && <small>Use at least 8 characters and avoid common passwords.</small>}
           </label>
           {error && <p className="feedback error" role="alert">{error}</p>}
-          <button className="btn primary w-full" disabled={busy}>{busy ? (registration ? 'Opening accountâ€¦' : 'Signing inâ€¦') : (registration ? 'Open account' : 'Sign in')} <ArrowRight size={17} /></button>
+          <button className="btn primary w-full" disabled={busy}>{busy ? (registration ? 'Opening account…' : 'Signing in…') : (registration ? 'Open account' : 'Sign in')} <ArrowRight size={17} /></button>
         </form>
         <p className="auth-switch">{registration ? 'Already have an account?' : 'New to HDFC Bank?'} <a href={registration ? '#login' : '#register'}>{registration ? 'Sign in' : 'Open an account'}</a></p>
       </section>
