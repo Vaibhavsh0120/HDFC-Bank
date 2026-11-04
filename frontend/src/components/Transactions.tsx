@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
+import { useEffect, useState, type SubmitEvent } from 'react';
 import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronRight, Search, Wallet } from 'lucide-react';
 import { ApiError, message, money, timestamp, type Account, type Entry, type History, type Instruction, type Kind, type Receipt, type Recipient } from '../lib/banking';
-import { QrScanner, QrImageInput, type QrPayment } from './AccountQr';
+import { type QrPayment } from './AccountQr';
 import { saveFile } from '../lib/files';
 
 export type AuthedRequest = <T>(path: string, body?: object, method?: 'PATCH' | 'DELETE') => Promise<T>;
@@ -161,7 +161,6 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(!!pending);
   const [error, setError] = useState('');
-  const [scanning, setScanning] = useState(false);
   const [pin, setPin] = useState('');
   const [pinConfirmation, setPinConfirmation] = useState('');
   const [pinStatus, setPinStatus] = useState<{ configured: boolean; locked_until: string | null }>();
@@ -187,13 +186,6 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
     });
     return () => { active = false; };
   }, [kind, send, pinRetry]);
-
-  const scanned = useCallback((payment: QrPayment) => {
-    setRecipient(payment.number);
-    if (payment.amount) setAmount(payment.amount);
-    if (payment.description) setDescription(payment.description);
-    setScanning(false);
-  }, []);
 
   async function prepare(event: SubmitEvent) {
     event.preventDefault();
@@ -309,14 +301,11 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
     </div>
   </div>;
 
-  return <form className="form-stack" onSubmit={prepare}>
+  return <form className={'form-stack' + (kind === 'transfer' ? ' payment-form' : '')} onSubmit={prepare}>
     <p className="muted">Available balance <strong>{money.format(Number(account.balance))}</strong></p>
     {kind === 'transfer' && <>
-      {payees.length > 0 && <label>Saved recipient<select value={payees.some(row => row.number === recipient) ? recipient : ''} onChange={event => setRecipient(event.target.value)}><option value="">Choose a saved recipient</option>{payees.map(row => <option value={row.number} key={row.number}>{row.name} · {row.number.slice(-4)}</option>)}</select></label>}
+      {!initial && payees.length > 0 && <label>Saved recipient<select value={payees.some(row => row.number === recipient) ? recipient : ''} onChange={event => setRecipient(event.target.value)}><option value="">Choose a saved recipient</option>{payees.map(row => <option value={row.number} key={row.number}>{row.name} · {row.number.slice(-4)}</option>)}</select></label>}
       <label>Recipient account number<input inputMode="numeric" pattern="9[01][0-9]{10}" maxLength={12} required value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="12-digit account number" /></label>
-      {!scanning ? <button type="button" className="text-link scan-toggle" onClick={() => setScanning(true)}>Scan account QR code</button>
-        : <QrScanner onScan={scanned} close={() => setScanning(false)} />}
-      <QrImageInput onScan={scanned} />
     </>}
     <label>Amount (INR)<input inputMode="decimal" placeholder="0.00" required maxLength={13} value={amount} onChange={e => setAmount(e.target.value)} /></label>
     <label>Description <small>Optional</small><input value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder="Add a note" /></label>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { QRCodeSVG } from 'qrcode.react';
-import { ArrowUpRight, Camera, Copy, Download, ImagePlus, QrCode } from 'lucide-react';
+import { ArrowLeft, Camera, ChevronRight, Copy, Download, ImagePlus, Info, Landmark, QrCode, ScanLine } from 'lucide-react';
 import { type Account } from '../lib/banking';
 import { saveFile } from '../lib/files';
 
@@ -163,6 +163,7 @@ export function QrScanner({ onScan, close }: { onScan: (payment: QrPayment) => v
 
 export function PaymentHub({ account, onPay, initialMode = 'pay' }: { account: Account; onPay: (payment?: QrPayment) => void; initialMode?: 'pay' | 'receive' }) {
   const [tab, setTab] = useState<'pay' | 'receive'>(initialMode);
+  const [qrMode, setQrMode] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
   const scanned = useCallback((payment: QrPayment) => {
@@ -171,14 +172,21 @@ export function PaymentHub({ account, onPay, initialMode = 'pay' }: { account: A
   }, [account.number, onPay]);
   const unavailable = account.status !== 'Active' || account.payment_locked;
   return <div className="payments-screen"><div className="page-heading"><p className="eyebrow">PAYMENTS</p><h1>Scan & pay</h1><p>Send and receive money between accounts in this project.</p></div>
-    <div className="tab-bar" role="group" aria-label="Payment mode"><button aria-pressed={tab === 'pay'} onClick={() => { setTab('pay'); setScanning(false); }}>Send money</button><button aria-pressed={tab === 'receive'} onClick={() => { setTab('receive'); setScanning(false); }}>Receive money</button></div>
-    {tab === 'receive' ? <ReceiveQr account={account} /> : <section className="panel settings-panel form-stack"><span className="icon-box"><QrCode size={24} /></span><h2>Pay another account</h2><p className="muted">Scan a QR code, upload a saved image or use an account number. Review the recipient and amount before entering your PIN.</p>
+    <div className="tab-bar" role="group" aria-label="Payment mode"><button aria-pressed={tab === 'pay'} onClick={() => { setTab('pay'); setScanning(false); setQrMode(false); setError(''); }}>Send money</button><button aria-pressed={tab === 'receive'} onClick={() => { setTab('receive'); setScanning(false); setQrMode(false); setError(''); }}>Receive money</button></div>
+    {tab === 'receive' ? <ReceiveQr account={account} /> : <section className="panel payment-methods" aria-labelledby="payment-method-title">
+      {qrMode && <button type="button" className="text-link payment-back" onClick={() => { setQrMode(false); setScanning(false); setError(''); }}><ArrowLeft size={17} /> Back to payment methods</button>}
+      <span className="icon-box payment-heading-icon"><QrCode size={26} /></span><h2 id="payment-method-title">{qrMode ? 'Pay with QR' : 'Pay another account'}</h2><p className="muted payment-intro">{qrMode ? 'Use an account QR code.' : 'Choose how you want to pay.'}</p>
       {unavailable ? <p className="feedback error">{account.status !== 'Active' ? 'Your account is frozen. Contact support.' : 'Your outgoing payments are locked. Unlock them in Profile & settings.'}</p> : <>
-        {scanning ? <QrScanner onScan={scanned} close={() => setScanning(false)} /> : <button className="btn primary" onClick={() => setScanning(true)}><Camera size={18} /> Scan QR code</button>}
-        <QrImageInput onScan={scanned} /><button className="btn secondary" onClick={() => onPay()}><ArrowUpRight size={18} /> Enter account number</button>
+        {qrMode ? <div className="form-stack payment-qr-controls">
+          {scanning ? <QrScanner onScan={scanned} close={() => setScanning(false)} /> : <button className="btn primary" onClick={() => setScanning(true)}><Camera size={18} /> Scan QR code</button>}
+          <QrImageInput onScan={scanned} />
+        </div> : <div className="payment-options">
+          <button type="button" className="payment-option payment-option-primary" onClick={() => setQrMode(true)}><span className="payment-option-icon"><ScanLine size={28} /></span><span className="payment-option-copy"><strong>Pay with QR</strong><span>Scan a QR code or upload an image</span></span><ChevronRight className="payment-option-chevron" size={25} /></button>
+          <button type="button" className="payment-option" onClick={() => onPay()}><span className="payment-option-icon"><Landmark size={28} /></span><span className="payment-option-copy"><strong>Pay with account number</strong><span>Enter recipient details manually</span></span><ChevronRight className="payment-option-chevron" size={25} /></button>
+        </div>}
       </>}
       {error && <p className="feedback error" role="alert">{error}</p>}
-      <p className="muted">Only this project’s account QR codes are supported. No UPI or external bank transfers.</p>
+      <p className="muted payment-support-note"><Info size={19} /><span>Project accounts only. No UPI or external bank transfers.</span></p>
     </section>}
   </div>;
 }
