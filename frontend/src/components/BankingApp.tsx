@@ -18,13 +18,26 @@ const items = [
 ] as const;
 type Section = typeof items[number]['route'];
 
-function Modal({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
+function Modal({ title, close, children, className = '' }: { title: string; close: () => void; children: ReactNode; className?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { dialog.current?.showModal(); }, []);
-  return <dialog ref={dialog} className="modal" aria-labelledby="modal-title" onCancel={event => { event.preventDefault(); close(); }}>
+  return <dialog ref={dialog} className={'modal ' + className} aria-labelledby="modal-title" onCancel={event => { event.preventDefault(); close(); }}>
     <div className="modal-header"><h2 id="modal-title">{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={close}><X size={20} /></button></div>
     <div className="modal-body">{children}</div>
   </dialog>;
+}
+
+function TransferNotification({ entry, dismiss }: { entry: Entry; dismiss: (reference: string) => void }) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => dismiss(entry.reference), 2000);
+    return () => window.clearTimeout(timer);
+  }, [entry.reference, dismiss]);
+
+  return <div className="transfer-notice" role="status">
+    <span className="transfer-notice-icon" aria-hidden="true"><Check size={22} /></span>
+    <span className="transfer-notice-copy"><strong>Money received</strong><small>{money.format(Number(entry.amount))} from {entry.counterparty?.name || 'another account'}</small></span>
+    <button className="icon-button" aria-label="Dismiss notification" onClick={() => dismiss(entry.reference)}><X size={18} /></button>
+  </div>;
 }
 
 function AccountCard({ account }: { account: Account }) {
@@ -149,10 +162,7 @@ function CustomerArea({ token, section, detail, end }: { token: string; section:
       </header>
       <main className="dashboard">
         <div className="transfer-notices" aria-live="polite">
-          {data?.account.transfer_alerts !== false && notices.map(entry => <div className="transfer-notice" key={entry.reference} role="status">
-            <span><strong>Transfer received</strong><small>{money.format(Number(entry.amount))} from {entry.counterparty?.name || 'another account'}</small></span>
-            <button className="icon-button" aria-label="Dismiss notification" onClick={() => dismiss(entry.reference)}><X size={18} /></button>
-          </div>)}
+          {data?.account.transfer_alerts !== false && notices.map(entry => <TransferNotification key={entry.reference} entry={entry} dismiss={dismiss} />)}
         </div>
         {exitError && <div className="feedback error form-stack" role="alert"><p>{exitError}</p><button className="btn secondary compact" onClick={() => end(false)}>Sign out on this device</button></div>}
         {loadError && <div className="feedback error flex items-center justify-between gap-3" role="alert"><span>{loadError}</span><button className="btn secondary compact" onClick={() => { setLoadError(''); setRefresh(value => value + 1); }}>Retry</button></div>}
@@ -197,7 +207,7 @@ function CustomerArea({ token, section, detail, end }: { token: string; section:
           {section === 'profile' && <CustomerSettings key={detail || 'menu'} active={detail} account={data.account} send={send} update={account => setData(previous => previous ? { ...previous, account } : previous)} />}
           {section === 'payments' && <PaymentHub key={detail || 'pay'} initialMode={detail === 'receive' ? 'receive' : 'pay'} account={data.account} onPay={startPayment} />}
           {section === 'cards' && <VirtualCardPage account={data.account} send={send} />}
-          {action && <Modal title={action === 'deposit' ? 'Deposit funds' : action === 'withdraw' ? 'Withdraw funds' : 'Transfer funds'} close={() => setAction(undefined)}>
+          {action && <Modal className={action === 'transfer' ? 'payment-modal' : ''} title={action === 'deposit' ? 'Deposit funds' : action === 'withdraw' ? 'Withdraw funds' : initialPayment && !resuming ? 'Pay with QR' : 'Pay with account number'} close={() => setAction(undefined)}>
             <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} pending={resuming} initial={action === 'transfer' && !resuming ? initialPayment : undefined} onPendingChange={refreshPending} />
           </Modal>}
           {statement && <Modal title="Mini-statement" close={() => setStatement(false)}>

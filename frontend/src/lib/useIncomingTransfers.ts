@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Account, Entry } from './banking';
 
 type Updates = { cursor: number; entries: Entry[]; account: Account };
@@ -11,6 +11,9 @@ type Send = <T>(path: string) => Promise<T>;
 export function useIncomingTransfers(send: Send, accountNumber: string | undefined) {
   const [notices, setNotices] = useState<Entry[]>([]);
   const [latestAccount, setLatestAccount] = useState<Account>();
+  const dismiss = useCallback((reference: string) => {
+    setNotices(previous => previous.filter(item => item.reference !== reference));
+  }, []);
 
   useEffect(() => {
     if (!accountNumber) return;
@@ -43,6 +46,6 @@ export function useIncomingTransfers(send: Send, accountNumber: string | undefin
   return {
     notices,
     latestAccount,
-    dismiss: (reference: string) => setNotices(previous => previous.filter(item => item.reference !== reference)),
+    dismiss,
   };
 }
