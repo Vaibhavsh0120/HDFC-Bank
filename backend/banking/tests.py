@@ -9,6 +9,7 @@ from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import connection, connections
+from importlib import import_module
 from django.test import SimpleTestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -29,6 +30,21 @@ class StructureTests(SimpleTestCase):
     def test_merge_keeps_items_and_orders_duplicates(self):
         self.assertEqual(list(merge_ordered([1, 3, 9], [2, 3, 4], key=int)), [1, 2, 3, 3, 4, 9])
         self.assertEqual(list(merge_ordered([], [1], key=int)), [1])
+
+
+class AccountNumberMigrationTests(TransactionTestCase):
+    def test_existing_account_number_is_preserved(self):
+        from django.apps import apps
+
+        user = get_user_model().objects.create(username="migration-customer")
+        account = Account.objects.create(owner=user)
+        Account.objects.filter(pk=account.pk).update(account_number=None)
+        expected = f"90{account.pk:010d}"
+        migration = import_module("banking.migrations.0003_account_numbers")
+        with connection.schema_editor() as editor:
+            migration.preserve_account_numbers(apps, editor)
+        account.refresh_from_db()
+        self.assertEqual(account.account_number, expected)
 
 
 class BankingTests(APITestCase):
@@ -53,6 +69,7 @@ class BankingTests(APITestCase):
     def test_registration_login_and_logout(self):
         self.assertEqual(Account.objects.count(), 2)
         self.assertNotEqual(self.alice["account"]["number"], self.bob["account"]["number"])
+        self.assertTrue(self.alice["account"]["number"].startswith("91"))
         self.assertEqual(self.client.get("/api/dashboard/").status_code, 401)
         credentials = {"email": "ALICE@example.test", "password": self.password}
         self.assertEqual(self.client.post("/api/auth/login/", {**credentials, "password": "wrong"}).status_code, 401)
@@ -66,6 +83,29 @@ class BankingTests(APITestCase):
         self.assertEqual(self.client.get("/api/dashboard/").status_code, 200)
         AccessSession.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
         self.assertEqual(self.client.get("/api/dashboard/").status_code, 401)
+
+    def test_account_numbers_are_random_and_collision_is_retried(self):
+        used = int(self.alice["account"]["number"][2:])
+        available = (used + 1) % 10**10
+        with patch("banking.models.secrets.randbelow", side_effect=[used, available]):
+            created = self.register("Charlie", "charlie@example.test")
+        self.assertEqual(created["account"]["number"], f"91{available:010d}")
+        self.assertNotEqual(created["account"]["number"], self.alice["account"]["number"])
+
+    def test_legacy_number_remains_usable_for_transfers(self):
+        target = Account.objects.get(owner__username="bob@example.test")
+        Account.objects.filter(pk=target.pk).update(account_number=None)
+        target.refresh_from_db()
+        legacy_number = f"90{target.pk:010d}"
+        self.assertEqual(target.number, legacy_number)
+        self.authorize(self.alice)
+        self.move("deposit", "30")
+        self.assertEqual(self.client.post("/api/recipient/", {"number": f"91{target.pk:010d}"}).status_code, 400)
+        self.assertEqual(self.client.post("/api/recipient/", {"number": legacy_number}).status_code, 200)
+        transfer = self.move("transfer", "10", recipient=legacy_number)
+        self.assertEqual(transfer.status_code, 201)
+        self.assertEqual(transfer.data["entry"]["counterparty"]["number"], legacy_number)
+        self.assertEqual(self.client.get("/api/history/", {"q": legacy_number}).data["count"], 1)
 
     def test_registration_validation_and_duplicate(self):
         data = {"name": "Alice Rao", "email": "ALICE@example.test", "password": self.password}

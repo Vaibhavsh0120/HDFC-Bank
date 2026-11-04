@@ -212,7 +212,7 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
 
   return <form className="form-stack" onSubmit={prepare}>
     <p className="muted">Available balance <strong>{money.format(Number(account.balance))}</strong></p>
-    {kind === 'transfer' && <label>Recipient account number<input inputMode="numeric" pattern="90[0-9]{10}" maxLength={12} required value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="12-digit account number" /></label>}
+    {kind === 'transfer' && <label>Recipient account number<input inputMode="numeric" pattern="9[01][0-9]{10}" maxLength={12} required value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="12-digit account number" /></label>}
     <label>Amount (INR)<input inputMode="decimal" placeholder="0.00" required maxLength={13} value={amount} onChange={e => setAmount(e.target.value)} /></label>
     <label>Description <small>Optional</small><input value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder="Add a note" /></label>
     {error && <p className="feedback error" role="alert">{error}</p>}

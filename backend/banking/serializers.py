@@ -37,7 +37,7 @@ class InstructionSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=Entry.Kind.choices)
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
     request_id = serializers.UUIDField()
-    recipient = serializers.RegexField(regex=r"^90[0-9]{10}$", required=False)
+    recipient = serializers.RegexField(regex=r"^9[01][0-9]{10}$", required=False)
     description = serializers.CharField(max_length=140, allow_blank=True, default="")
 
     def validate(self, data):
