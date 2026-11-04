@@ -140,6 +140,28 @@ const path = require('node:path');
     assert.equal(await page.locator('.transfer-notice').count(), 1, 'Notification disappeared before 2 seconds');
     await page.clock.runFor(1);
     assert.equal(await page.locator('.transfer-notice').count(), 0, 'Notification did not dismiss after 2 seconds');
+    const nativePage = await context.newPage();
+    await nativePage.addInitScript(() => {
+      window.CapacitorCustomPlatform = { name: 'ios' };
+      window.scannerCalls = 0;
+      window.scannerResult = '';
+      window.Capacitor = {
+        PluginHeaders: [{ name: 'CapacitorBarcodeScanner', methods: [{ name: 'scanBarcode', rtype: 'promise' }] }],
+        nativePromise: async () => { window.scannerCalls++; return { ScanResult: window.scannerResult, format: 0 }; },
+      };
+    });
+    await nativePage.goto('http://payment-ui.test/#payments');
+    await nativePage.getByRole('button', { name: /^Pay with QR/ }).click();
+    await nativePage.getByRole('button', { name: 'Scan QR code', exact: true }).click();
+    await nativePage.waitForFunction(() => window.scannerCalls === 1);
+    await nativePage.getByRole('button', { name: 'Scan QR code', exact: true }).waitFor();
+    assert.equal(await nativePage.getByRole('button', { name: 'Open camera scanner' }).count(), 0);
+    assert.equal(await nativePage.getByRole('button', { name: 'Close scanner' }).count(), 0);
+    await nativePage.evaluate(number => { window.scannerResult = 'HDFC-BANK:ACCOUNT:' + number; }, recipient.number);
+    await nativePage.getByRole('button', { name: 'Scan QR code', exact: true }).click();
+    await nativePage.getByRole('dialog').waitFor();
+    assert.equal(await nativePage.getByLabel('Recipient account number').inputValue(), recipient.number);
+    await nativePage.close();
     assert.deepEqual(errors, []);
     console.log('PASS: separate manual/QR flows; 4 viewport widths; amount validation; recipient review and PIN; QR image decoding, own-QR/invalid-image errors; payment lock; Escape dismissal; simultaneous notifications, manual dismiss and exact 2-second auto-dismiss. API responses are fictional fixtures.');
   } catch (error) {
