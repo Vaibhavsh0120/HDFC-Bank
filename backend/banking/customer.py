@@ -78,9 +78,6 @@ def profile(request):
         changed_email = email != account.owner.email
         if changed_email and not account.owner.check_password(data.get('current_password', '')):
             return Response({'detail': 'Enter your current password to change your email. Google-only accounts can create a password with Forgot password.'}, status=400)
-        if 'payment_locked' in data and data['payment_locked'] != account.payment_locked:
-            if error := require_pin(account, request.data):
-                return error
         try:
             with transaction.atomic():
                 user = User.objects.select_for_update().get(pk=request.user.pk)
@@ -89,12 +86,17 @@ def profile(request):
                     return Response({'detail': 'Your account changed. Reload and try again.'}, status=409)
                 if changed_email and User.objects.exclude(pk=user.pk).filter(username=email).exists():
                     return Response({'detail': 'This email address is already in use.'}, status=409)
+                account = Account.objects.select_for_update().get(pk=account.pk)
+                # Compare with the locked row, not the earlier response snapshot.
+                # Returning an error commits failed PIN attempts without editing the profile.
+                if 'payment_locked' in data and data['payment_locked'] != account.payment_locked:
+                    if error := require_pin(account, request.data):
+                        return error
                 user.first_name = data.get('name', user.first_name)
                 if changed_email:
                     user.username = user.email = email
                     EmailChallenge.objects.filter(user=user).delete()
                 user.save(update_fields=['first_name', 'username', 'email'])
-                account = Account.objects.select_for_update().get(pk=account.pk)
                 fields = [key for key in ('phone', 'address', 'payment_locked', 'transfer_alerts') if key in data]
                 for key in fields:
                     setattr(account, key, data[key])
