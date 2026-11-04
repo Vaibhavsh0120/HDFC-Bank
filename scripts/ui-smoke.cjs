@@ -57,7 +57,6 @@ async (page) => {
   await page.getByRole('heading', { name: 'Transfer completed' }).waitFor();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await receiver.goto(origin + '/#overview');
-  await receiver.getByRole('button', { name: 'Show balance and account number' }).click();
   await receiver.getByText('₹75.50', { exact: true }).first().waitFor();
   await receiverContext.close();
   checked.push('QR image scan → verified recipient → new PIN → payment → receiver balance');
@@ -82,7 +81,6 @@ async (page) => {
   await page.getByRole('button', { name: 'Retry confirmation' }).click();
   await page.getByRole('heading', { name: 'Withdrawal completed' }).waitFor();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
-  await page.getByRole('button', { name: 'Show balance and account number' }).click();
   await page.getByText('₹914.50', { exact: true }).waitFor();
   assert(await page.getByRole('region', { name: 'Pending transactions' }).count() === 0, 'Completed request was still pending');
   checked.push('Lost withdrawal response → reload → same-request retry → no duplicate debit');

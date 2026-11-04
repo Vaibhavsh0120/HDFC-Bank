@@ -102,6 +102,9 @@ a { text-decoration: none; color: inherit; }
 .auth-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; margin: 17px 0; }
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .google-sign-in .feedback, .google-sign-in .muted { margin-top: 10px; }
+.google-sign-in .google-button { width: 100%; min-height: 52px; padding-inline: 16px; gap: 12px; background: #fff; border: 1px solid #747775; color: #1f1f1f; font-size: 14px; font-weight: 500; }
+.google-button img { width: 20px; height: 20px; flex: none; object-fit: contain; }
+@media (hover: hover) and (pointer: fine) { .google-sign-in .google-button:hover:not(:disabled) { background: #f4f6f8; border-color: #1f1f1f; } }
 .form-stack { display: grid; gap: 15px; }
 .form-stack label { display: grid; gap: 6px; font-size: 13px; font-weight: 650; }
 .form-stack small { color: var(--muted); font-size: 12px; font-weight: 450; }
@@ -442,7 +445,7 @@ details p { color: var(--muted); line-height: 1.6; margin-top: 8px; }
 .unlock-panel h1 { font-size: 26px; }
 .native-private .app-shell { visibility: hidden; }
 .native-private body { background: var(--surface); }
-.device-unlock-offer { height: auto; width: calc(100% - 32px); max-width: 440px; border-radius: 18px; margin: auto; padding: 0; }
+.modal.device-unlock-offer { position: fixed; inset: var(--safe-top) 0 env(safe-area-inset-bottom, 0px); height: fit-content; min-height: 0; width: calc(100% - 32px); max-width: 440px; max-height: calc(100dvh - var(--safe-top) - env(safe-area-inset-bottom, 0px) - 32px); overflow-y: auto; border-radius: 18px; margin: auto; padding: 0; }
 .device-unlock-offer .modal-body { padding: 24px; }
 .card-buttons .card-button, .virtual-card .card-button { min-width: 44px; min-height: 44px; }
 .virtual-status, .virtual-number-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

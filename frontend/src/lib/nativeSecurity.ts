@@ -60,6 +60,14 @@ export async function saveSession(token: string) {
 }
 
 export async function forgetSession() {
-  if (nativeApp) await (await vault()).store.remove(sessionKey, false);
   localStorage.removeItem(sessionKey); sessionStorage.removeItem(sessionKey);
+  if (nativeApp) {
+    const { store } = await vault();
+    // Clear the token first: a failed deletion must never leave a saved token
+    // behind with its protection removed.
+    await store.remove(sessionKey, false);
+    // Remember the completed setup choice, but disable protection after logout.
+    // Later logins can enable it in Security without repeating first-time setup.
+    await store.set('device-unlock', false, false, false);
+  }
 }

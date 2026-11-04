@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { Fingerprint, LockKeyhole } from 'lucide-react';
 import { deviceUnlock, nativeApp } from '../lib/nativeSecurity';
 import { Brand } from './PublicPages';
@@ -21,24 +22,31 @@ export function DeviceUnlockSettings() {
     </button></section>;
 }
 
-export function DeviceUnlockBoundary({ children, end, freshLogin = false }: { children: ReactNode; end: (expired: boolean) => void; freshLogin?: boolean }) {
+export function DeviceUnlockBoundary({ children, end, freshLogin = false, offerSetup = false }: { children: ReactNode; end: (expired: boolean) => void; freshLogin?: boolean; offerSetup?: boolean }) {
   const [phase, setPhase] = useState<'loading' | 'locked' | 'ready'>('loading');
   const [enabled, setEnabled] = useState(false);
   const [offer, setOffer] = useState(false);
+  const [needsChoice, setNeedsChoice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const authenticating = useRef(false);
   const enabledRef = useRef(false);
   const alive = useRef(true);
+  const backgroundGeneration = useRef(0);
   const offerDialog = useRef<HTMLDialogElement>(null);
 
   const unlock = useCallback(async () => {
     if (authenticating.current) return;
     authenticating.current = true; setBusy(true); setError('');
+    const generation = backgroundGeneration.current;
     try {
       await deviceUnlock.unlock();
-      const state = await App.getState();
-      if (alive.current && state.isActive) setPhase('ready');
+      // Successful OS authentication is the result. iOS/embedded containers can
+      // still report inactive while their Face ID overlay is dismissing.
+      if (alive.current && generation === backgroundGeneration.current) {
+        document.documentElement.classList.remove('native-private');
+        setPhase('ready');
+      }
     } catch (error) { if (alive.current) setError(failure(error)); }
     finally { authenticating.current = false; if (alive.current) setBusy(false); }
   }, []);
@@ -49,23 +57,36 @@ export function DeviceUnlockBoundary({ children, end, freshLogin = false }: { ch
     deviceUnlock.preference().then(value => {
       if (!alive.current) return;
       enabledRef.current = value === true; setEnabled(value === true);
-      setOffer(value === null);
+      setNeedsChoice(value === null);
       setPhase(value === true && !freshLogin ? 'locked' : 'ready');
       if (value === true && !freshLogin) void unlock();
     }).catch(() => { if (alive.current) { setPhase('locked'); setError('Device unlock settings could not be read. Try again or sign in again.'); } });
     const listener = App.addListener('appStateChange', ({ isActive }) => {
       if (!enabledRef.current) return;
+      if (!isActive && authenticating.current) return;
       document.documentElement.classList.toggle('native-private', !isActive);
-      if (!isActive && !authenticating.current) setPhase('locked');
+      if (!isActive && !authenticating.current && Capacitor.getPlatform() !== 'ios') setPhase('locked');
       // Retry is explicit after cancellation; resume never repeatedly opens prompts.
+    });
+    const pause = App.addListener('pause', () => {
+      if (!enabledRef.current) return;
+      // Face ID only makes iOS inactive; didEnterBackground is the actual lock
+      // boundary. Android's authentication activity may itself pause the app.
+      if (Capacitor.getPlatform() === 'ios' || !authenticating.current) {
+        backgroundGeneration.current++;
+        document.documentElement.classList.add('native-private');
+        setPhase('locked');
+      }
     });
     return () => {
       alive.current = false;
       void listener.then(handle => handle.remove());
+      void pause.then(handle => handle.remove());
       document.documentElement.classList.remove('native-private');
     };
   }, [unlock, freshLogin]);
 
+  useEffect(() => { if (offerSetup && needsChoice && phase === 'ready') setOffer(true); }, [offerSetup, needsChoice, phase]);
   useEffect(() => { if (offer) offerDialog.current?.showModal(); }, [offer]);
 
   async function change(value: boolean) {
@@ -74,8 +95,7 @@ export function DeviceUnlockBoundary({ children, end, freshLogin = false }: { ch
     try {
       await deviceUnlock.configure(value);
       if (!alive.current) return;
-      setEnabled(value); enabledRef.current = value; setOffer(false);
-      if (value && !(await App.getState()).isActive) setPhase('locked');
+      setEnabled(value); enabledRef.current = value; setNeedsChoice(false); setOffer(false);
     } catch (error) { if (alive.current) setError(failure(error)); }
     finally { authenticating.current = false; if (alive.current) setBusy(false); }
   }
@@ -86,7 +106,7 @@ export function DeviceUnlockBoundary({ children, end, freshLogin = false }: { ch
     <p className="muted">{phase === 'loading' ? 'Checking device unlock…' : 'Use your phone’s security to access your account.'}</p>
     {error && <p className="feedback error" role="alert">{error}</p>}
     {phase === 'locked' && <><button className="btn primary" disabled={busy} onClick={() => void unlock()}>{busy ? 'Authenticating…' : 'Unlock app'}</button>
-      <button className="btn secondary" disabled={busy} onClick={() => end(false)}>Sign in again</button></>}
+      <button className="btn secondary" disabled={busy} onClick={() => { end(false); window.location.hash = 'login'; }}>Sign in again</button></>}
   </section></main>;
   return <Context.Provider value={{ enabled, busy, error, change }}>{children}{offer && <dialog ref={offerDialog} className="modal device-unlock-offer" aria-labelledby="device-unlock-title" onCancel={event => { event.preventDefault(); if (!busy) void change(false); }}>
     <div className="modal-body form-stack"><span className="icon-box"><Fingerprint size={26} /></span><h2 id="device-unlock-title">Unlock with your phone?</h2>

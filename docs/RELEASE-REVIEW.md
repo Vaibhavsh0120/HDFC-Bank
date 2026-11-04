@@ -4,6 +4,14 @@
 
 This is an educational banking simulation. The checks below support a trainer demonstration and source handoff; they do not certify a real banking system or guarantee a mark against a rubric that has not been supplied.
 
+## Version 1.5.1 follow-up
+
+The patch addresses the reported iPhone unlock dead end and setup-dialog height. Device authentication success no longer depends on an immediate active-state read or a foreground event. Genuine iOS backgrounding still invalidates an in-progress attempt; Android authentication-activity interruptions do not trigger a second lock. Native session validation prevents authentication/setup prompts for expired logins. Setup is gated on a fresh login reaching the dashboard, and logout disables the lock while retaining the completed-choice marker.
+
+The user's latest visibility preference is implemented: dashboard balance and account number start visible and toggle together. Virtual-card details still start masked. Native Google sign-in has a provider icon, visible border and full-width 52px control. The setup dialog uses content height and safe-area centering.
+
+The updated native regression script exercises iOS and Android bridges in WebKit, including stale/missing foreground state, cancellation/retry, logout, expired tokens, one-time setup timing and measured dialog geometry. Bridge tests and screenshots are local evidence; physical-device confirmation remains separate. Version-specific release notes are in [CHANGELOG.md](../CHANGELOG.md).
+
 ## Version 1.5.0 follow-up
 
 The [changelog](../CHANGELOG.md) records all seven earlier versions and the 1.5.0 changes. Existing GitHub release bodies were updated with their own tag-range changes. The [LiveContainer source](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json) was initialized from the seven published iOS IPAs; the mobile release workflow now refreshes it after successful iOS publication. The source is maintained as `apps.json` on `main` so no extra source branch is needed. The workflow uses authored notes or GitHub's generated commit notes for future versions.

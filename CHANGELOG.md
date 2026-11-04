@@ -2,6 +2,17 @@
 
 All money, accounts and virtual cards in this project are fictional. Android 1.1.0 and later use the project release signing key; 1.0.0 used a debug key. iOS IPAs are unsigned and need a compatible signing/container setup.
 
+## 1.5.1 — 2026-11-04
+
+- Fix successful Face ID/fingerprint authentication leaving the app locked when the native container still reports an inactive state.
+- Distinguish iOS Face ID interruptions from genuine backgrounding. Keep cancellation locked, support retry, and ignore late authentication results after the app enters the background.
+- Validate saved native sessions before device authentication; expired sessions return to sign-in and connection failures offer retry.
+- Offer device-unlock setup only after the first successful sign-in has loaded the dashboard. Never offer setup on logged-out screens or merely because a token was restored.
+- Disable device unlock after logout, session expiry or signing in again. Remember the setup choice so later logins do not repeatedly show the offer; it can be enabled in Security settings.
+- Center the content-sized setup dialog within phone safe areas, including landscape.
+- Make the native Google sign-in button easier to see with a full-width outline, Google icon and larger tap target.
+- Show the dashboard balance and account number by default; the eye button hides or reveals both. Virtual-card details remain masked by default.
+
 ## 1.5.0 — 2026-11-04
 
 - Open saved sessions without briefly showing the public landing page. Show a neutral startup screen and dashboard skeleton while loading.

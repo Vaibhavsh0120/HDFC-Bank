@@ -27,12 +27,12 @@ async (page) => {
   await page.getByRole('status', { name: 'Loading your account' }).waitFor();
   await page.getByRole('heading', { name: 'Welcome, Version' }).waitFor();
   assert(!await page.evaluate(() => window.__landingFlashed), 'Landing page flashed during session restore');
-  assert((await page.locator('.balance-value').innerText()).includes('••••••'), 'Balance visible by default');
-  assert(!(await page.locator('.account-number').innerText()).includes(session.account.number), 'Full account number visible by default');
-  await page.getByRole('button', { name: 'Show balance and account number' }).click();
-  assert((await page.locator('.balance-value').innerText()).includes('₹0.00'), 'Eye did not reveal balance');
-  assert((await page.locator('.account-number').innerText()).includes(session.account.number), 'Eye did not reveal account number');
+  assert((await page.locator('.balance-value').innerText()).includes('₹0.00'), 'Balance not visible by default');
+  assert((await page.locator('.account-number').innerText()).includes(session.account.number), 'Account number not visible by default');
   await page.getByRole('button', { name: 'Hide balance and account number' }).click();
+  assert((await page.locator('.balance-value').innerText()).includes('••••••'), 'Eye did not hide balance');
+  assert(!(await page.locator('.account-number').innerText()).includes(session.account.number), 'Eye did not hide account number');
+  await page.getByRole('button', { name: 'Show balance and account number' }).click();
   await page.goto(origin + '/#profile/security');
   await page.getByRole('heading', { name: 'Security', exact: true }).waitFor();
   assert(await page.getByRole('heading', { name: 'Device unlock', exact: true }).count() === 0, 'Website exposes app-only security settings');

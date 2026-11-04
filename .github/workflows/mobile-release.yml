@@ -12,7 +12,7 @@ on:
         description: Release version (MAJOR.MINOR.PATCH)
         type: string
         required: true
-        default: '1.5.0'
+        default: '1.5.1'
       publish:
         description: Publish requested artifacts to GitHub Releases
         type: boolean

@@ -24,7 +24,7 @@
 | **Administration** | Review customers, accounts and transactions, and manage account status through Django admin. |
 | **Scan & pay** | Scan with the native camera or web camera, upload a QR image, or enter an account number. Receive QR codes support an optional amount and note, and can be saved or shared. |
 | **Profile & settings** | Edit name, email, phone and address; manage a nominee, saved recipients, outgoing-payment lock and incoming alerts. |
-| **Security and recovery** | Optional device unlock in the native app using Face ID, fingerprint or the phone's screen lock; transaction PIN and email recovery; saved sessions for up to 30 days. Balance and account number start hidden. |
+| **Security and recovery** | Optional device unlock in the native app using Face ID, fingerprint or the phone's screen lock; transaction PIN and email recovery; saved sessions for up to 30 days. One eye button hides or reveals the balance and account number. |
 | **Cards and support** | Choose VISA, RuPay or Mastercard for a numeric demo card; reveal/hide its details, freeze/unfreeze or replace it; save receipts, export statements, and track support requests. |
 
 <p align="center">
@@ -105,7 +105,7 @@ This preview ignores hosted database credentials and uses `backend/demo.sqlite3`
 
 Add the [HDFC Bank source URL](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json) in LiveContainer's source manager. It lists published iOS IPAs and their release notes. Publishing an iOS or combined build through **Actions → Mobile release** automatically refreshes the same source URL; Android-only and unpublished builds do not change its iOS version. Refresh the source in LiveContainer to see updates. This updates the catalog; it does not silently install apps on your phone.
 
-On the first native app login, choose **Enable device unlock** or **Not now**. Change this later under **Settings → Security → Device unlock**. Enabled sessions lock when the app goes into the background and at the next cold launch. Authentication uses the phone's system prompt, including its passcode/password fallback. No app login PIN is created. The website has no device-unlock prompt or setting; the existing transaction PIN still protects payments and card changes.
+After the first successful native app login reaches the dashboard, choose **Enable device unlock** or **Not now**. Change this later under **Settings → Security → Device unlock**. Enabled sessions lock when the app goes into the background and at the next cold launch. Authentication uses the phone's system prompt, including its passcode/password fallback. Logout disables device unlock; later logins can enable it in Security without repeating the first-time offer. No app login PIN is created. The website has no device-unlock prompt or setting; the existing transaction PIN still protects payments and card changes. Since 1.5.1 the dashboard balance and account number start visible; card details still start masked.
 
 For **MySQL, devices on the same Wi-Fi, administrator creation, environment variables, hosting and mobile builds**, see [Setup and operations](docs/SETUP.md). Test settings and their fast password hashes must never be deployed.
 

@@ -7,7 +7,7 @@ import { PaymentHub, type QrPayment } from './AccountQr';
 import { CustomerSettings, VirtualCardPage } from './CustomerSettings';
 import { PasswordRecovery } from './PasswordRecovery';
 import { useIncomingTransfers } from '../lib/useIncomingTransfers';
-import { forgetSession, readSavedSession, saveSession, sessionKey } from '../lib/nativeSecurity';
+import { forgetSession, nativeApp, readSavedSession, saveSession, sessionKey } from '../lib/nativeSecurity';
 import { DeviceUnlockBoundary } from './DeviceUnlock';
 import { NotFound } from './NotFound';
 
@@ -43,7 +43,7 @@ function TransferNotification({ entry, dismiss }: { entry: Entry; dismiss: (refe
 }
 
 function AccountCard({ account }: { account: Account }) {
-  const [revealed, setRevealed] = useState(false);
+  const [revealed, setRevealed] = useState(true);
   const [copied, setCopied] = useState('');
   async function copy() {
     try {
@@ -67,8 +67,9 @@ function AccountCard({ account }: { account: Account }) {
   </section>;
 }
 
-function CustomerArea({ token, section, detail, end }: { token: string; section: Section; detail?: string; end: (expired: boolean) => void }) {
-  const [data, setData] = useState<Dashboard>();
+function CustomerArea({ token, section, detail, end, initialData, onReady }: { token: string; section: Section; detail?: string; end: (expired: boolean) => void; initialData?: Dashboard; onReady: () => void }) {
+  const [data, setData] = useState<Dashboard | undefined>(initialData);
+  const useInitialData = useRef(!!initialData);
   const [loadError, setLoadError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [exitBusy, setExitBusy] = useState(false);
@@ -118,6 +119,11 @@ function CustomerArea({ token, section, detail, end }: { token: string; section:
   }, [notices]);
 
   useEffect(() => {
+    if (data) onReady();
+  }, [!!data, onReady]);
+
+  useEffect(() => {
+    if (useInitialData.current) { useInitialData.current = false; return; }
     let current = true;
     send<Dashboard>('dashboard/').then(result => {
       if (current) { setData(result); setLoadError(''); }
@@ -229,6 +235,10 @@ export default function BankingApp() {
   const [storageNotice, setStorageNotice] = useState('');
   const [initialized, setInitialized] = useState(false);
   const [freshLogin, setFreshLogin] = useState(false);
+  const [initialDashboard, setInitialDashboard] = useState<Dashboard>();
+  const [dashboardReady, setDashboardReady] = useState(false);
+  const [restoreProblem, setRestoreProblem] = useState('');
+  const accountReady = useCallback(() => { setDashboardReady(true); setInitialDashboard(undefined); }, []);
   useEffect(() => {
     let active = true;
     const readRoute = () => {
@@ -237,10 +247,25 @@ export default function BankingApp() {
       if (next !== 'services') window.scrollTo(0, 0);
     };
     const readLogin = async () => {
+      let saved: string | undefined;
       try {
-        const saved = await readSavedSession();
+        saved = await readSavedSession();
+        // A stored token is not proof of a valid session. Validate it before
+        // offering device security or prompting to unlock an expired login.
+        if (nativeApp && saved) {
+          const dashboard = await request<Dashboard>('dashboard/', { token: saved });
+          if (active) setInitialDashboard(dashboard);
+        }
         if (active) setToken(saved);
-      } catch { if (active) setStorageNotice('Saved login is unavailable. Sign in again to continue.'); }
+      } catch (error) {
+        if (!active) return;
+        if (error instanceof ApiError && error.status === 401) {
+          await forgetSession().catch(() => {});
+          if (!active) return;
+          setExpired(true); setToken(undefined); window.location.hash = 'login';
+        } else if (nativeApp && saved) setRestoreProblem(message(error));
+        else setStorageNotice('Saved login is unavailable. Sign in again to continue.');
+      }
       finally { if (active) setInitialized(true); }
     };
     readLogin();
@@ -254,6 +279,9 @@ export default function BankingApp() {
   const end = useCallback((expired: boolean) => {
     void forgetSession().catch(() => setStorageNotice('Saved login could not be cleared. Your current session has ended; check device storage before sharing this device.'));
     setToken(undefined);
+    setInitialDashboard(undefined);
+    setDashboardReady(false);
+    setRestoreProblem('');
     setFreshLogin(false);
     setExpired(expired);
     window.location.hash = expired ? 'login' : 'home';
@@ -263,10 +291,13 @@ export default function BankingApp() {
     void saveSession(session.token).catch(() => setStorageNotice('Login could not be saved on this device. Keep this page open or allow secure storage.'));
     setExpired(false);
     setFreshLogin(true);
+    setDashboardReady(false);
+    setInitialDashboard(undefined);
     setToken(session.token);
     window.location.hash = 'overview';
   }
 
+  if (restoreProblem) return <main className="startup-screen"><Brand /><section className="unlock-panel panel form-stack"><h1>Account unavailable</h1><p className="feedback error" role="alert">{restoreProblem}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn secondary" onClick={() => { end(false); window.location.hash = 'login'; }}>Sign in again</button></section></main>;
   if (!initialized) return <main className="startup-screen" aria-busy="true"><Brand /><p role="status">Opening your account…</p></main>;
   if (token) {
     const [base, detail] = route.split('/');
@@ -274,7 +305,7 @@ export default function BankingApp() {
     const knownDetails: Record<string, string[]> = { profile: ['details', 'security', 'nominee', 'recipients', 'preferences', 'help'], payments: ['receive'] };
     if (!known.includes(base) || (detail && !knownDetails[base]?.includes(detail)) || route.split('/').length > 2) return <NotFound />;
     const section = base === 'receive' ? 'payments' : items.find(item => item.route === base)?.route ?? 'overview';
-    return <DeviceUnlockBoundary key={token} end={end} freshLogin={freshLogin}>{storageNotice && <p className="session-notice" role="status">{storageNotice}</p>}{route === 'forgot-password' ? <PasswordRecovery /> : <CustomerArea token={token} section={section} detail={base === 'receive' ? 'receive' : detail} end={end} />}</DeviceUnlockBoundary>;
+    return <DeviceUnlockBoundary key={token} end={end} freshLogin={freshLogin} offerSetup={freshLogin && dashboardReady && section === 'overview' && route !== 'forgot-password'}>{storageNotice && <p className="session-notice" role="status">{storageNotice}</p>}{route === 'forgot-password' ? <PasswordRecovery /> : <CustomerArea token={token} section={section} detail={base === 'receive' ? 'receive' : detail} end={end} initialData={initialDashboard} onReady={accountReady} />}</DeviceUnlockBoundary>;
   }
   if (route === 'forgot-password') return <PasswordRecovery />;
   if (route === 'home' || route === 'services') return <Landing />;

@@ -4,6 +4,14 @@ This remains a student banking simulation using internal accounts and fictional 
 
 The [release review](RELEASE-REVIEW.md) contains the final security findings and current test results; [Setup and operations](SETUP.md) contains deployment and local MySQL instructions.
 
+## Version 1.5.1 follow-up
+
+The user's iPhone screenshots reproduced an oversized setup dialog and an account remaining locked after successful Face ID. The unlock path previously required `App.getState().isActive` immediately after authentication. That state can remain inactive while iOS dismisses its overlay. The patch accepts the successful OS result, clears any transient privacy cover, distinguishes true iOS backgrounding from the Face ID interruption, and ignores stale results from interrupted attempts.
+
+Setup now waits for a fresh authenticated login and a successful dashboard response. Saved native sessions are validated before prompting; an expired token never opens device authentication. Logout disables the lock and remembers the completed setup choice. Balance/account visibility defaults were changed to visible at the user's request; virtual-card masking remains unchanged. The native Google control has a full-width outline and provider icon.
+
+WebKit regression checks cover both simulated iOS and Android bridges: no setup while logged out or merely restoring a token, successful authentication with both a stale inactive result and a missing foreground event, real background lock, cancellation/retry, logout disabling protection, dashboard-gated setup, a remembered decline, later logins without repeated setup, expired-session recovery, Google-button geometry and phone-safe dialog layout at 320, 390, 393 and 844 pixels. These tests run actual plugin JavaScript against a simulated bridge; they do not certify physical Face ID/fingerprint or LiveContainer hardware behavior.
+
 ## Version 1.5.0 follow-up
 
 - Saved-session startup renders a neutral server/client loading state; a DOM observer confirmed the public landing page never mounted for a saved login. Slow account responses show a dashboard skeleton.

@@ -10,7 +10,7 @@ def release(version, *, ios=True, **extras):
 
 class ReleaseTests(unittest.TestCase):
     def test_changelog_has_every_published_version_and_separate_notes(self):
-        for version in ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.4.1', '1.4.2', '1.5.0']:
+        for version in ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.4.1', '1.4.2', '1.5.0', '1.5.1']:
             self.assertTrue(release_notes(version))
         self.assertIn('native camera', release_notes('1.4.2'))
         self.assertNotIn('## 1.4.1', release_notes('1.4.2'))

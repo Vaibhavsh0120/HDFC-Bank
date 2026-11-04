@@ -101,7 +101,7 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
 
   return <div className="google-sign-in">
     {(enabled || native) && <div className="auth-divider"><span>or</span></div>}
-    {native ? <button className="btn w-full" type="button" disabled={busy} onClick={signInNative}>Continue with Google</button> : <div ref={element} />}
+    {native ? <button className="btn google-button" type="button" disabled={busy} onClick={signInNative}><img src="/google-g.png" width="20" height="20" alt="" /><span>{busy ? 'Signing in…' : 'Continue with Google'}</span></button> : <div ref={element} />}
     {loading && <p role="status" className="muted">Loading Google sign-in…</p>}
     {busy && <p role="status" className="muted">Signing in with Google…</p>}
     {error && <div className="feedback error" role="alert"><p>{error}</p>{!native && <button type="button" onClick={() => setAttempt(value => value + 1)}>Try again</button>}</div>}
