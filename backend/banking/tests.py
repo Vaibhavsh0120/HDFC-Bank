@@ -6,7 +6,7 @@ from unittest import skipUnless
 from unittest.mock import patch
 from uuid import uuid4
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
 from django.db import connection, connections
@@ -37,7 +37,7 @@ class AccountNumberMigrationTests(TransactionTestCase):
     def test_existing_account_number_is_preserved(self):
         from django.apps import apps
 
-        user = get_user_model().objects.create(username="migration-customer")
+        user = User.objects.create(username="migration-customer")
         account = Account.objects.create(owner=user)
         Account.objects.filter(pk=account.pk).update(account_number=None)
         expected = f"90{account.pk:010d}"
@@ -307,10 +307,10 @@ class BankingTests(APITestCase):
         self.assertEqual(target.owner.first_name, "Bob Patel")
 
     def test_admin_rejects_customer_and_can_freeze_account(self):
-        user_model = get_user_model()
+        user_model = User
         self.client.force_login(user_model.objects.get(username="alice@example.test"))
         self.assertEqual(self.client.get("/admin/banking/account/").status_code, 302)
-        admin = user_model.objects.create_superuser("operator", password=self.password)
+        admin = user_model.objects.create_superuser("operator", email="operator@example.test", password=self.password)
         self.client.force_login(admin)
         account = Account.objects.get(owner__username="alice@example.test")
         result = self.client.post(f"/admin/banking/account/{account.pk}/change/", {"status": "frozen"})
@@ -347,7 +347,7 @@ class GoogleSignInTests(APITestCase):
         self.assertFalse(user.has_usable_password())
 
     def test_existing_password_account_is_not_automatically_linked(self):
-        user = get_user_model().objects.create_user(
+        user = User.objects.create_user(
             username="alex@example.test", email="alex@example.test", password="Existing!Pass99",
         )
         Account.objects.create(owner=user)
@@ -388,7 +388,7 @@ class GoogleSignInTests(APITestCase):
 @skipUnless(connection.vendor == "mysql", "Uses real InnoDB row locks")
 class ConcurrencyTests(TransactionTestCase):
     def test_simultaneous_debits_cannot_overdraw(self):
-        owner = get_user_model().objects.create(username="parallel")
+        owner = User.objects.create(username="parallel")
         account = Account.objects.create(owner=owner, balance=Decimal("50"), pin_hash=make_password("1234"))
         gate = Barrier(2)
 
@@ -409,7 +409,7 @@ class ConcurrencyTests(TransactionTestCase):
         self.assertEqual(Entry.objects.count(), 1)
 
     def test_concurrent_retries_post_once(self):
-        owner = get_user_model().objects.create(username="retry")
+        owner = User.objects.create(username="retry")
         account = Account.objects.create(owner=owner, balance=Decimal("0"))
         request_id = uuid4()
         gate = Barrier(2)

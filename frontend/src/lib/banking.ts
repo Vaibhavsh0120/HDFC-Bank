@@ -26,7 +26,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(path: string, { token, body, method }: { token?: string; body?: object; method?: 'GET' | 'POST' | 'PATCH' } = {}): Promise<T> {
+export async function request<T>(path: string, { token, body, method, timeoutMs = 45000 }: { token?: string; body?: object; method?: 'GET' | 'POST' | 'PATCH'; timeoutMs?: number } = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(apiUrl + '/api/' + path, {
@@ -36,7 +36,7 @@ export async function request<T>(path: string, { token, body, method }: { token?
         ...(token ? { Authorization: 'Bearer ' + token } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(timeoutMs),
       cache: 'no-store',
     });
   } catch {

@@ -37,7 +37,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "banking.middleware.ApiNoStoreMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+] + ([] if DEBUG else ["whitenoise.middleware.WhiteNoiseMiddleware"]) + [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

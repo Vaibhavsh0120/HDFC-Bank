@@ -54,6 +54,8 @@ class Account(models.Model):
 
 
 class Entry(models.Model):
+    recipient_id: int | None
+
     class Kind(models.TextChoices):
         DEPOSIT = "deposit", "Deposit"
         WITHDRAW = "withdraw", "Withdrawal"
