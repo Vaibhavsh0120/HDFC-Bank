@@ -62,6 +62,10 @@ def account_data(account):
         "balance": str(account.balance),
         "status": account.get_status_display(),
         "created_at": account.created_at.isoformat(),
+        "phone": account.phone, "address": account.address,
+        "payment_locked": account.payment_locked,
+        "transfer_alerts": account.transfer_alerts,
+        "has_password": account.owner.has_usable_password(),
     }
 
 

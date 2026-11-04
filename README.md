@@ -22,6 +22,10 @@
 | **Everyday transactions** | Deposit, withdraw or transfer to another registered account after reviewing the details. |
 | **Activity and statements** | Search and filter transactions, inspect receipts and open a mini-statement. |
 | **Administration** | Review customers, accounts and transactions, and manage account status through Django admin. |
+| **Scan & pay** | Scan with the native camera or web camera, upload a QR image, or enter an account number. Receive QR codes support an optional amount and note, and can be saved or shared. |
+| **Profile & settings** | Edit name, email, phone and address; manage a nominee, saved recipients, outgoing-payment lock and incoming alerts. |
+| **Security and recovery** | Set or change a transaction PIN, recover a forgotten PIN or password with an email code, and stay signed in across browser restarts for up to 30 days. |
+| **Cards and support** | Create and freeze a demonstration virtual card, save receipts, export statements, and track support requests with administrator replies. |
 
 <p align="center">
   <img src="frontend/public/account-mobile.png" height="360" alt="Mobile account overview" />
@@ -170,6 +174,14 @@ The iOS IPA is unsigned and needs Apple signing and provisioning before it can b
 
 ## Testing
 
+Run the isolated SQLite suite without loading hosted database credentials:
+
+```powershell
+.\.venv\Scripts\python backend\manage.py test banking --settings=config.test_settings
+```
+
+MySQL locking tests are skipped by this isolated suite. See [the customer-flow audit](docs/CUSTOMER-FLOW-AUDIT.md) for browser checks, recovery-email configuration and remaining device validation.
+
 For local MySQL testing, use a local account with permission to create a separate test database.
 
 ```powershell
@@ -207,6 +219,22 @@ Balance changes and their ledger entry commit together. Transfers acquire accoun
 The mini-statement merges ordered account activity and retains the latest entries in a bounded circular buffer.
 
 ## Implementation notes
+
+### Recovery emails
+
+Password and PIN reset codes expire after 10 minutes, allow at most five wrong attempts, and can be used once. Resends have a 60-second cooldown. Codes are hashed in the database and never returned in API responses. Password recovery invalidates prior logins; an ordinary password change retains the current login.
+
+For existing SMTP configuration, set `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, and the matching TLS/SSL options. The SMTP backend is selected automatically when `EMAIL_HOST` is present. Set only one of `EMAIL_USE_TLS` or `EMAIL_USE_SSL` to `1`.
+
+Render free services block standard SMTP ports. For that hosting plan, set `RESEND_API_KEY` and `DEFAULT_FROM_EMAIL` to a verified sender; the HTTPS email backend is selected automatically. See [Render's free-service limits](https://render.com/docs/free) and [Resend's sending API](https://resend.com/docs/api-reference/emails/send-email). No email credentials are included in source control. A new deployment is required after changing hosting configuration. Without a sender, production recovery reports that email delivery is unavailable.
+
+Local development defaults to console emails. The isolated UI-review settings write emails under ignored `artifacts/emails/` instead of sending them. Neither local test mode proves inbox delivery.
+
+### Account services
+
+Nominee records belong to the signed-in account, require a PIN to change, and require guardian details for minors. These project records do not create a legal bank nomination. Virtual cards have persistent issue/freeze controls and a clearly marked demo identifier; they cannot be used with merchants, ATMs or external card networks. Phone and email edits do not claim that contact details have been verified.
+
+The iOS shell includes safe-area spacing and a portrait fallback for embedded containers that report zero top inset. Android uses the native QR scanner, with image upload and account-number entry as alternatives. Browser camera scanning needs HTTPS or localhost; an HTTP LAN page can still upload a QR image.
 
 - Local MySQL uses an explicit loopback-only mode so hosted TLS settings cannot leak into a local connection. Hosted MySQL verifies the Aiven certificate.
 - Incoming transfers are checked while the account is open, and transaction identifiers let a customer safely retry an interrupted confirmation.

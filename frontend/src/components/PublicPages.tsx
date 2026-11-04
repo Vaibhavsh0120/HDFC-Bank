@@ -239,6 +239,7 @@ export function AuthPage({ mode, onSession }: { mode: 'login' | 'register'; onSe
           {error && <p className="feedback error" role="alert">{error}</p>}
           <button className="btn primary w-full" disabled={busy}>{busy ? (registration ? 'Opening account…' : 'Signing in…') : (registration ? 'Open account' : 'Sign in')} <ArrowRight size={17} /></button>
         </form>
+        {!registration && <a className="text-link forgot-link" href="#forgot-password">Forgot password?</a>}
         <GoogleSignIn registration={registration} onSession={onSession} />
         <p className="auth-switch">{registration ? 'Already have an account?' : 'New to HDFC Bank?'} <a href={registration ? '#login' : '#register'}>{registration ? 'Sign in' : 'Open an account'}</a></p>
       </section>

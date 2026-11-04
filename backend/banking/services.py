@@ -161,6 +161,11 @@ def _post_entry(source_id, instruction):
     if target_id is not None and not accounts[target_id].owner.is_active:
         raise AccountUnavailable("The recipient account is unavailable.")
 
+    if instruction.kind in (Entry.Kind.WITHDRAW, Entry.Kind.TRANSFER):
+        source = accounts[source_id]
+        if source.payment_locked:
+            raise AccountUnavailable('Outgoing payments are locked. Unlock them in Profile & settings.')
+
     changes = MOVEMENTS[instruction.kind].changes(accounts[source_id], accounts.get(target_id), instruction.amount)
     for account, delta in changes:
         account.balance += delta

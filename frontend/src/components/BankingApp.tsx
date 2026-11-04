@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, ArrowUpRight, Check, Copy, Eye, EyeOff, History, LayoutGrid, LogOut, QrCode, UserRound, Wallet, X } from 'lucide-react';
-import { ApiError, message, money, request, timestamp, type Account, type Dashboard, type Entry, type Kind, type Receipt, type Session } from '../lib/banking';
+import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, ArrowUpRight, Check, Copy, CreditCard, Eye, EyeOff, History, LayoutGrid, LogOut, QrCode, UserRound, Wallet, X } from 'lucide-react';
+import { ApiError, message, money, request, type Account, type Dashboard, type Entry, type Kind, type Receipt, type Session } from '../lib/banking';
 import { AuthPage, Brand, Landing, Notice } from './PublicPages';
 import { EntryDetails, EntryList, HistoryPanel, MovementForm, pendingMovements, type PendingMovement } from './Transactions';
-import { ReceiveQr } from './AccountQr';
-import { SecurityPin } from './SecurityPin';
+import { PaymentHub, type QrPayment } from './AccountQr';
+import { CustomerSettings, VirtualCardPage } from './CustomerSettings';
+import { PasswordRecovery } from './PasswordRecovery';
 import { useIncomingTransfers } from '../lib/useIncomingTransfers';
 
 const sessionKey = 'hdfc.access';
 const items = [
   { route: 'overview', label: 'Overview', icon: LayoutGrid },
   { route: 'activity', label: 'Activity', icon: History },
-  { route: 'receive', label: 'Receive', icon: QrCode },
-  { route: 'profile', label: 'Profile', icon: UserRound },
+  { route: 'payments', label: 'Scan & pay', icon: QrCode },
+  { route: 'cards', label: 'Cards', icon: CreditCard },
+  { route: 'profile', label: 'Settings', icon: UserRound },
 ] as const;
 type Section = typeof items[number]['route'];
 
@@ -51,19 +53,7 @@ function AccountCard({ account }: { account: Account }) {
   </section>;
 }
 
-function Profile({ account }: { account: Account }) {
-  return <section className="panel profile-panel">
-    <div className="profile-person"><span className="avatar big">{account.name.slice(0, 1).toUpperCase()}</span><div><h2>{account.name}</h2><p>{account.email}</p></div></div>
-    <dl className="details">
-      <div><dt>Account type</dt><dd>{account.type}</dd></div>
-      <div><dt>Account number</dt><dd>{account.number}</dd></div>
-      <div><dt>Account status</dt><dd>{account.status}</dd></div>
-      <div><dt>Opened on</dt><dd>{timestamp.format(new Date(account.created_at))} IST</dd></div>
-    </dl>
-  </section>;
-}
-
-function CustomerArea({ token, section, end }: { token: string; section: Section; end: (expired: boolean) => void }) {
+function CustomerArea({ token, section, detail, end }: { token: string; section: Section; detail?: string; end: (expired: boolean) => void }) {
   const [data, setData] = useState<Dashboard>();
   const [loadError, setLoadError] = useState('');
   const [refresh, setRefresh] = useState(0);
@@ -74,6 +64,10 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
   const [statement, setStatement] = useState(false);
   const [pending, setPending] = useState<PendingMovement[]>([]);
   const [resuming, setResuming] = useState<PendingMovement>();
+  const [initialPayment, setInitialPayment] = useState<QrPayment>();
+  const startPayment = useCallback((payment?: QrPayment) => {
+    setResuming(undefined); setInitialPayment(payment); setAction('transfer');
+  }, []);
   const refreshPending = useCallback(() => {
     if (!data) return;
     try {
@@ -87,7 +81,7 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
     window.addEventListener('storage', refreshPending);
     return () => window.removeEventListener('storage', refreshPending);
   }, [refreshPending]);
-  const send = useCallback(async <T,>(path: string, body?: object, method?: 'PATCH') => {
+  const send = useCallback(async <T,>(path: string, body?: object, method?: 'PATCH' | 'DELETE') => {
     try {
       return await request<T>(path, { token, body, method });
     } catch (error) {
@@ -155,12 +149,12 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
       </header>
       <main className="dashboard">
         <div className="transfer-notices" aria-live="polite">
-          {notices.map(entry => <div className="transfer-notice" key={entry.reference} role="status">
+          {data?.account.transfer_alerts !== false && notices.map(entry => <div className="transfer-notice" key={entry.reference} role="status">
             <span><strong>Transfer received</strong><small>{money.format(Number(entry.amount))} from {entry.counterparty?.name || 'another account'}</small></span>
             <button className="icon-button" aria-label="Dismiss notification" onClick={() => dismiss(entry.reference)}><X size={18} /></button>
           </div>)}
         </div>
-        {exitError && <p className="feedback error" role="alert">{exitError}</p>}
+        {exitError && <div className="feedback error form-stack" role="alert"><p>{exitError}</p><button className="btn secondary compact" onClick={() => end(false)}>Sign out on this device</button></div>}
         {loadError && <div className="feedback error flex items-center justify-between gap-3" role="alert"><span>{loadError}</span><button className="btn secondary compact" onClick={() => { setLoadError(''); setRefresh(value => value + 1); }}>Retry</button></div>}
         {!data && !loadError && <p className="panel panel-message" role="status">Loading your account…</p>}
         {data && <>
@@ -172,6 +166,8 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
               setAction(item.instruction.kind);
             }}>Review {item.instruction.kind} · {money.format(Number(item.instruction.amount))}</button>)}
           </section>}
+          {data.account.status === 'Frozen' && <p className="feedback error">Your account is frozen. Payments and card changes are unavailable. <a className="text-link" href="#profile/help">Contact support</a>.</p>}
+          {data.account.payment_locked && <p className="feedback">Outgoing payments are locked. You can still receive transfers. <a className="text-link" href="#profile/preferences">Manage payment lock</a>.</p>}
           {section === 'overview' && <>
             <div className="page-heading"><p className="eyebrow">ACCOUNT OVERVIEW</p><h1>Welcome, {data.account.name.split(/\s+/)[0]}</h1><p>See your balance and manage your savings.</p></div>
             <div className="account-grid">
@@ -181,9 +177,9 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
                 {data.account.status === 'Frozen' && <p className="feedback error">Transactions are unavailable while this account is frozen.</p>}
                 <div className="quick-grid">
                   <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('deposit'); }}><span className="icon-box"><ArrowDownToLine size={19} /></span>Deposit</button>
-                  <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('withdraw'); }}><span className="icon-box"><ArrowUpFromLine size={19} /></span>Withdraw</button>
-                  <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('transfer'); }}><span className="icon-box"><ArrowLeftRight size={19} /></span>Transfer</button>
-                  <a href="#receive"><span className="icon-box"><QrCode size={19} /></span>Receive</a>
+                  <button disabled={data.account.status !== 'Active' || data.account.payment_locked} onClick={() => { setResuming(undefined); setAction('withdraw'); }}><span className="icon-box"><ArrowUpFromLine size={19} /></span>Withdraw</button>
+                  <button disabled={data.account.status !== 'Active' || data.account.payment_locked} onClick={() => startPayment()}><span className="icon-box"><ArrowLeftRight size={19} /></span>Transfer</button>
+                  <a href="#payments"><span className="icon-box"><QrCode size={19} /></span>Scan & pay</a>
                 </div>
               </section>
             </div>
@@ -198,17 +194,11 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
             <div className="page-heading"><p className="eyebrow">SAVINGS ACCOUNT</p><h1>Transaction history</h1><p>Search and review deposits, withdrawals and transfers.</p></div>
             <HistoryPanel send={send} onSelect={setSelected} />
           </>}
-          {section === 'profile' && <>
-            <div className="page-heading"><p className="eyebrow">PERSONAL DETAILS</p><h1>Your profile</h1><p>View your customer and account information.</p></div>
-            <Profile account={data.account} />
-            <SecurityPin send={send} />
-          </>}
-          {section === 'receive' && <div className="receive-screen">
-            <div className="page-heading"><p className="eyebrow">SAVINGS ACCOUNT</p><h1>Receive funds</h1><p>Share your account details for an internal transfer.</p></div>
-            <ReceiveQr number={data.account.number} />
-          </div>}
+          {section === 'profile' && <CustomerSettings key={detail || 'menu'} active={detail} account={data.account} send={send} update={account => setData(previous => previous ? { ...previous, account } : previous)} />}
+          {section === 'payments' && <PaymentHub key={detail || 'pay'} initialMode={detail === 'receive' ? 'receive' : 'pay'} account={data.account} onPay={startPayment} />}
+          {section === 'cards' && <VirtualCardPage account={data.account} send={send} />}
           {action && <Modal title={action === 'deposit' ? 'Deposit funds' : action === 'withdraw' ? 'Withdraw funds' : 'Transfer funds'} close={() => setAction(undefined)}>
-            <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} pending={resuming} onPendingChange={refreshPending} />
+            <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} pending={resuming} initial={action === 'transfer' && !resuming ? initialPayment : undefined} onPendingChange={refreshPending} />
           </Modal>}
           {statement && <Modal title="Mini-statement" close={() => setStatement(false)}>
             <p className="muted statement-note">Latest 10 transactions · Account ending {data.account.number.slice(-4)}</p>
@@ -226,35 +216,47 @@ export default function BankingApp() {
   const [route, setRoute] = useState('home');
   const [token, setToken] = useState<string>();
   const [expired, setExpired] = useState(false);
+  const [storageNotice, setStorageNotice] = useState('');
   useEffect(() => {
     const readRoute = () => {
       const next = window.location.hash.slice(1) || 'home';
       setRoute(next);
       if (next !== 'services') window.scrollTo(0, 0);
     };
-    setToken(sessionStorage.getItem(sessionKey) || undefined);
+    const readLogin = () => {
+      try {
+        const saved = localStorage.getItem(sessionKey) || sessionStorage.getItem(sessionKey);
+        if (saved) { localStorage.setItem(sessionKey, saved); sessionStorage.removeItem(sessionKey); }
+        setToken(saved || undefined);
+      } catch { setStorageNotice('Browser storage is unavailable. Your login will not stay saved after closing this page.'); }
+    };
+    readLogin();
+    const changed = (event: StorageEvent) => { if (event.key === sessionKey) readLogin(); };
+    window.addEventListener('storage', changed);
     readRoute();
     window.addEventListener('hashchange', readRoute);
-    return () => window.removeEventListener('hashchange', readRoute);
+    return () => { window.removeEventListener('hashchange', readRoute); window.removeEventListener('storage', changed); };
   }, []);
 
   const end = useCallback((expired: boolean) => {
-    sessionStorage.removeItem(sessionKey);
+    try { localStorage.removeItem(sessionKey); sessionStorage.removeItem(sessionKey); } catch { /* End the in-memory login even if storage is blocked. */ }
     setToken(undefined);
     setExpired(expired);
     window.location.hash = expired ? 'login' : 'home';
   }, []);
 
   function begin(session: Session) {
-    sessionStorage.setItem(sessionKey, session.token);
+    try { localStorage.setItem(sessionKey, session.token); } catch { setStorageNotice('Login could not be saved on this device. Keep this page open or allow browser storage.'); }
     setExpired(false);
     setToken(session.token);
     window.location.hash = 'overview';
   }
 
+  if (route === 'forgot-password') return <PasswordRecovery />;
   if (token) {
-    const section = items.find(item => item.route === route)?.route ?? 'overview';
-    return <CustomerArea token={token} section={section} end={end} />;
+    const [base, detail] = route.split('/');
+    const section = base === 'receive' ? 'payments' : items.find(item => item.route === base)?.route ?? 'overview';
+    return <>{storageNotice && <p className="session-notice" role="status">{storageNotice}</p>}<CustomerArea key={token} token={token} section={section} detail={base === 'receive' ? 'receive' : detail} end={end} /></>;
   }
   if (route === 'home' || route === 'services') return <Landing />;
   const mode = route === 'register' ? 'register' : 'login';

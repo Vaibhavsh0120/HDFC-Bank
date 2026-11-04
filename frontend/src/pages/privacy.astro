@@ -7,20 +7,21 @@ import '../styles/global.css';
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Privacy | HDFC Bank Student Project</title>
 </head>
 <body>
-  <main class="wrap" style="max-width:800px; padding-block:48px; line-height:1.7">
+  <main class="wrap privacy-wrap" style="max-width:800px; line-height:1.7">
     <a class="back-link" href="/">Back to home</a>
     <h1 style="font-size:2rem; margin-block:20px">Privacy notice</h1>
     <p>This independent student project uses fictional accounts and virtual funds.</p>
     <h2 style="font-size:1.2rem; margin-block:18px 6px">Information stored</h2>
-    <p>We store your name, email address, account details and transaction history to operate your account. If you use a password, it is stored as a hash. If you sign in with Google, we use the verified account identity and email to authenticate you.</p>
+    <p>We store your name, email address, optional phone number and address, account details and transaction history to operate your account. We also store saved recipients, nominee and guardian details you provide, demo card status, preferences and support requests. Passwords, transaction PINs and short-lived recovery codes are stored as hashes. Google sign-in uses your verified Google identity.</p>
     <h2 style="font-size:1.2rem; margin-block:18px 6px">Service providers</h2>
     <p>Render hosts the application, Aiven hosts the database, and Google provides optional sign-in. These providers process information needed to deliver their services.</p>
     <h2 style="font-size:1.2rem; margin-block:18px 6px">Storage and contact</h2>
-    <p>The browser stores a temporary session token and may store a pending transaction request to prevent duplicate submissions. Contact the project maintainer at vaibhavsh0120@gmail.com for questions or account deletion requests.</p>
+    <p>Your browser or app stores a login token so you stay signed in across restarts, for up to 30 days. Sign out on shared devices. Pending transaction requests may be stored to prevent duplicate submissions. Camera frames and uploaded QR images are decoded on your device and are not uploaded to the server. Recovery emails use the configured email provider. Contact the project maintainer at vaibhavsh0120@gmail.com for questions or account deletion requests.</p>
   </main>
+  <script>import '../lib/platform';</script>
 </body>
 </html>

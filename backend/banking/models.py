@@ -25,6 +25,10 @@ class Account(models.Model):
     pin_hash = models.CharField(max_length=128, blank=True, editable=False)
     pin_failures = models.PositiveSmallIntegerField(default=0, editable=False)
     pin_locked_until = models.DateTimeField(null=True, blank=True, editable=False)
+    phone = models.CharField(max_length=16, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    payment_locked = models.BooleanField(default=False)
+    transfer_alerts = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -98,3 +102,51 @@ class AccessSession(models.Model):
 class GoogleIdentity(models.Model):
     subject_hash = models.CharField(max_length=64, unique=True)
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+
+class EmailChallenge(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    purpose = models.CharField(max_length=20)
+    email = models.EmailField(max_length=150)
+    code_hash = models.CharField(max_length=128)
+    failures = models.PositiveSmallIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Nominee(models.Model):
+    account = models.OneToOneField(Account, on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+    relationship = models.CharField(max_length=40)
+    date_of_birth = models.DateField()
+    address = models.CharField(max_length=300)
+    guardian_name = models.CharField(max_length=150, blank=True)
+    guardian_relationship = models.CharField(max_length=40, blank=True)
+    guardian_address = models.CharField(max_length=300, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class Beneficiary(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name='beneficiaries')
+    recipient = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='+')
+    nickname = models.CharField(max_length=80, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['account', 'recipient'], name='unique_beneficiary')]
+
+
+class VirtualCard(models.Model):
+    account = models.OneToOneField(Account, on_delete=models.CASCADE)
+    identifier = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    frozen = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SupportRequest(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.PROTECT)
+    reference = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    category = models.CharField(max_length=30)
+    message = models.CharField(max_length=2000)
+    status = models.CharField(max_length=20, default='Open')
+    response = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)

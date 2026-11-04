@@ -28,7 +28,7 @@ export function useIncomingTransfers(send: Send, accountNumber: string | undefin
         cursor = result.cursor;
         setLatestAccount(result.account);
         if (result.entries.length) {
-          setNotices(previous => [...previous, ...result.entries]);
+          setNotices(previous => [...previous, ...result.entries.filter(row => !previous.some(item => item.reference === row.reference))].slice(-20));
         }
       } catch {
         // Retry on the next poll. Keep the cursor so interrupted updates are not lost.
