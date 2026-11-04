@@ -6,6 +6,7 @@ from uuid import UUID
 from django.db import transaction
 
 from .models import Account, Entry
+from .pin import verify_pin
 from .structures import CircularBuffer, merge_ordered
 
 MAX_BALANCE = Decimal("999999999999.99")
@@ -26,6 +27,14 @@ class AccountUnavailable(BankingError):
 
 class DuplicateRequest(BankingError):
     status = 409
+
+
+class PinRequired(BankingError):
+    status = 403
+
+
+class PinLocked(BankingError):
+    status = 429
 
 
 @dataclass(frozen=True)
@@ -86,8 +95,30 @@ def recipient_for(source_id, number):
     return target
 
 
+def post_entry(source_id, instruction, *, pin=None):
+    existing = Entry.objects.filter(
+        initiator_id=source_id, request_id=instruction.request_id,
+    ).exists()
+    if instruction.kind in (Entry.Kind.WITHDRAW, Entry.Kind.TRANSFER) and not existing:
+        if not pin:
+            if not Account.objects.filter(pk=source_id, pin_hash__gt="").exists():
+                raise PinRequired("Set a transaction PIN before continuing.")
+            raise BankingError("Enter your transaction PIN.")
+        try:
+            result = verify_pin(source_id, pin)
+        except Account.DoesNotExist as exc:
+            raise AccountUnavailable("The account is unavailable.") from exc
+        if result == "not_configured":
+            raise PinRequired("Set a transaction PIN before continuing.")
+        if result == "locked":
+            raise PinLocked("Too many incorrect PIN attempts. Try again in 15 minutes.")
+        if result != "ok":
+            raise BankingError("Incorrect transaction PIN.")
+    return _post_entry(source_id, instruction)
+
+
 @transaction.atomic
-def post_entry(source_id, instruction):
+def _post_entry(source_id, instruction):
     target_id = instruction.recipient_id
     if instruction.kind not in MOVEMENTS:
         raise BankingError("Unknown transaction type.")

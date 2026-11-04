@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { SocialLogin } from '@capgo/capacitor-social-login';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, Eye, EyeOff, History, Landmark, Smartphone, ShieldCheck } from 'lucide-react';
 import { message, request, type Session } from '../lib/banking';
 
@@ -30,14 +31,19 @@ function loadGoogleScript(): Promise<void> {
 }
 
 function GoogleSignIn({ registration, onSession }: { registration: boolean; onSession: (session: Session) => void }) {
+  const native = Capacitor.isNativePlatform();
   const element = useRef<HTMLDivElement>(null);
   const [enabled, setEnabled] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
-    if (Capacitor.isNativePlatform() || !window.isSecureContext) return;
+    if (native || !window.isSecureContext) return;
+    setError('');
+    setLoading(true);
     request<{ client_id: string }>('auth/google/config/').then(async ({ client_id }) => {
       if (!active || !client_id) return;
       setEnabled(true);
@@ -65,15 +71,37 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
       });
     }).catch(() => {
       if (active) setError('Google sign-in could not load. Use your email and password or try again later.');
+    }).finally(() => {
+      if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [registration, onSession]);
+  }, [registration, onSession, attempt, native]);
+
+  async function signInNative() {
+    setBusy(true);
+    setError('');
+    try {
+      const { client_id } = await request<{ client_id: string }>('auth/google/config/');
+      if (!client_id) throw new Error('Google sign-in is not configured on this server.');
+      const iosClientId = import.meta.env.PUBLIC_GOOGLE_IOS_CLIENT_ID;
+      if (Capacitor.getPlatform() === 'ios' && !iosClientId) throw new Error('Google sign-in is not configured for this app.');
+      await SocialLogin.initialize({ google: { webClientId: client_id, iOSClientId: iosClientId, iOSServerClientId: client_id, mode: 'online' } });
+      const login = await SocialLogin.login({ provider: 'google', options: {} });
+      if (login.result.responseType !== 'online' || !login.result.idToken) throw new Error('Google did not return an identity token. Please try again.');
+      onSession(await request<Session>('auth/google/', { body: { credential: login.result.idToken } }));
+    } catch (error) {
+      setError(message(error));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return <div className="google-sign-in">
-    {enabled && <div className="auth-divider"><span>or</span></div>}
-    <div ref={element} aria-label="Google sign-in" />
+    {(enabled || native) && <div className="auth-divider"><span>or</span></div>}
+    {native ? <button className="btn w-full" type="button" disabled={busy} onClick={signInNative}>Continue with Google</button> : <div ref={element} aria-label="Google sign-in" />}
+    {loading && <p role="status" className="muted">Loading Google sign-in…</p>}
     {busy && <p role="status" className="muted">Signing in with Google…</p>}
-    {error && <p className="feedback error" role="alert">{error}</p>}
+    {error && <div className="feedback error" role="alert"><p>{error}</p>{!native && <button type="button" onClick={() => setAttempt(value => value + 1)}>Try again</button>}</div>}
   </div>;
 }
 
@@ -140,6 +168,19 @@ export function Landing() {
           <span className="icon-box"><Icon size={21} /></span><h3>{title}</h3><p>{text}</p>
         </article>)}</div>
       </section>
+      <section className="mobile-feature">
+        <div className="wrap mobile-feature-inner">
+          <div>
+            <p className="eyebrow">BANKING ON THE GO</p>
+            <h2>Your account, wherever you are.</h2>
+            <p>Check your balance, review activity and manage transfers from your phone.</p>
+            <a className="text-link" href="#register">Open an account <ArrowRight size={16} /></a>
+          </div>
+          <div className="phone-preview">
+            <img src="/account-mobile.png" width="390" height="844" loading="lazy" alt="Mobile account overview showing savings balance and quick actions" />
+          </div>
+        </div>
+      </section>
     </main>
     <footer className="site-footer"><div className="wrap footer-inner"><Brand /><Notice /></div></footer>
   </>;
@@ -151,7 +192,7 @@ export function AuthPage({ mode, onSession }: { mode: 'login' | 'register'; onSe
   const [error, setError] = useState('');
   const [visible, setVisible] = useState(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget));
     setBusy(true);

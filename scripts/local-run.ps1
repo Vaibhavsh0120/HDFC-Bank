@@ -50,7 +50,7 @@ if (Test-Path -LiteralPath $stateFile) {
     }
 }
 foreach ($port in @(8000, 4321)) {
-    if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
+    if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -ne 0 -and $_.RemotePort -eq 0 }) {
         throw "Port $port is already in use. Stop that service before starting the local app."
     }
 }
@@ -66,6 +66,7 @@ if ($null -eq $env:BANK_LOCAL_DB_PASSWORD) {
 
 # Explicit overrides prevent backend/.env from selecting the hosted database.
 $env:DJANGO_DEBUG = '1'
+$env:BANK_LOCAL_MYSQL = '1'
 $env:DJANGO_SECRET_KEY = 'local-network-development-only'
 $env:DJANGO_ALLOWED_HOSTS = "localhost,127.0.0.1,$LanAddress"
 $env:CORS_ORIGINS = ('http://localhost,http://localhost:4321,http://127.0.0.1:4321,http://{0}:4321' -f $LanAddress)
@@ -100,12 +101,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not connect to local MySQL or create the
 & $python (Join-Path $backend 'manage.py') migrate --noinput
 if ($LASTEXITCODE -ne 0) { throw 'Local database migrations failed.' }
 
-if ($BuildAndroid) {
-    # This APK is intentionally configured for the selected private LAN address.
-    Push-Location $frontend
-    try {
-        & npm.cmd run build
-        if ($LASTEXITCODE -ne 0) { throw 'Local frontend build failed.' }
+Push-Location $frontend
+try {
+    & npm.cmd run build
+    if ($LASTEXITCODE -ne 0) { throw 'Local frontend build failed.' }
+    if ($BuildAndroid) {
+        # This APK is intentionally configured for the selected private LAN address.
         & npm.cmd run native:android
         if ($LASTEXITCODE -ne 0) { throw 'Capacitor Android preparation failed.' }
         $nativeConfigPath = Join-Path $frontend 'android/app/src/main/assets/capacitor.config.json'
@@ -124,9 +125,23 @@ if ($BuildAndroid) {
             $manifest.Save($manifestPath)
             Push-Location (Join-Path $frontend 'android')
             try {
+                $previousJavaHome = $env:JAVA_HOME
+                $previousPath = $env:PATH
+                $jdkCandidates = @($env:JAVA_HOME) + @(Get-ChildItem -Path (Join-Path $env:ProgramFiles 'Java'), (Join-Path $env:ProgramFiles 'Eclipse Adoptium') -Directory -ErrorAction SilentlyContinue | ForEach-Object FullName)
+                $jdk21 = $jdkCandidates | Where-Object {
+                    $_ -and (Test-Path -LiteralPath (Join-Path $_ 'release')) -and
+                    (Select-String -LiteralPath (Join-Path $_ 'release') -Pattern '^JAVA_VERSION="21[.\"]' -Quiet)
+                } | Select-Object -First 1
+                if (-not $jdk21) { throw 'JDK 21 is required to build the local Android app. Install JDK 21 or set JAVA_HOME to its directory.' }
+                $env:JAVA_HOME = $jdk21
+                $env:PATH = "$(Join-Path $jdk21 'bin');$previousPath"
                 & ./gradlew.bat assembleDebug
                 if ($LASTEXITCODE -ne 0) { throw 'Local Android build failed. Check your Android SDK and JDK 21.' }
-            } finally { Pop-Location }
+            } finally {
+                $env:JAVA_HOME = $previousJavaHome
+                $env:PATH = $previousPath
+                Pop-Location
+            }
             $output = Join-Path $repo 'artifacts'
             New-Item -ItemType Directory -Path $output -Force | Out-Null
             Copy-Item -LiteralPath (Join-Path $frontend 'android/app/build/outputs/apk/debug/app-debug.apk') -Destination (Join-Path $output 'HDFC-Bank-local.apk') -Force
@@ -134,8 +149,8 @@ if ($BuildAndroid) {
             [IO.File]::WriteAllText($manifestPath, $originalManifest)
         }
         Write-Host "Local Android APK: $output/HDFC-Bank-local.apk"
-    } finally { Pop-Location }
-}
+    }
+} finally { Pop-Location }
 
 New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
 $started = @()
@@ -150,8 +165,8 @@ try {
     $apiArgs = @(('"{0}"' -f (Join-Path $backend 'manage.py')), 'runserver', '0.0.0.0:8000', '--noreload')
     $api = Start-Process -FilePath $python -ArgumentList $apiArgs -WorkingDirectory $backend -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $stateDir 'api.log') -RedirectStandardError (Join-Path $stateDir 'api-error.log')
     $started += $api
-    $webArgs = @(('"{0}"' -f $astro), 'dev', '--host', '0.0.0.0', '--port', '4321')
-    $web = Start-Process -FilePath $node -ArgumentList $webArgs -WorkingDirectory $frontend -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $stateDir 'web.log') -RedirectStandardError (Join-Path $stateDir 'web-error.log')
+    $webArgs = @('-m', 'http.server', '4321', '--bind', '0.0.0.0', '--directory', ('"{0}"' -f (Join-Path $frontend 'dist')))
+    $web = Start-Process -FilePath $python -ArgumentList $webArgs -WorkingDirectory $frontend -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $stateDir 'web.log') -RedirectStandardError (Join-Path $stateDir 'web-error.log')
     $started += $web
     $state = @{
         processes = @($started | ForEach-Object {
@@ -165,7 +180,7 @@ try {
         if ($api.HasExited -or $web.HasExited) { throw "A server exited. Check logs in $stateDir." }
         try {
             $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health/' -TimeoutSec 2
-            $response = Invoke-WebRequest -Uri ('http://{0}:4321/' -f $LanAddress) -TimeoutSec 2
+            $response = Invoke-WebRequest -UseBasicParsing -Uri ('http://{0}:4321/' -f $LanAddress) -TimeoutSec 2
             if ($health.status -eq 'ok' -and $response.StatusCode -eq 200) { $ready = $true; break }
         } catch { Start-Sleep -Milliseconds 500 }
     }

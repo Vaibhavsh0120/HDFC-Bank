@@ -27,6 +27,7 @@ concurrency:
 env:
   VERSION: ${{ inputs.version }}
   PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+  PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.PUBLIC_GOOGLE_IOS_CLIENT_ID || '722118387236-tu1h5mp9rteul43rl8i3f19d2moaassj.apps.googleusercontent.com' }}
 
 jobs:
   prepare:
