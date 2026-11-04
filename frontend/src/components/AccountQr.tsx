@@ -106,17 +106,7 @@ export function QrScanner({ onScan, close }: { onScan: (payment: QrPayment) => v
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
-  const native = Capacitor.isNativePlatform();
-  async function nativeScan() {
-    setError('');
-    try {
-      const { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } = await import('@capacitor/barcode-scanner');
-      const result = await CapacitorBarcodeScanner.scanBarcode({ hint: CapacitorBarcodeScannerTypeHint.QR_CODE, scanInstructions: 'Scan a project account QR code' });
-      if (result.ScanResult) onScan(parseAccountQr(result.ScanResult));
-    } catch (error) { setError(error instanceof Error ? error.message : 'Scanning stopped. Check camera permission, upload an image or enter the account number.'); }
-  }
   useEffect(() => {
-    if (native) return;
     let active = true; let stream: MediaStream | undefined; let frame = 0; let lastFrame = 0;
     const stop = () => { stream?.getTracks().forEach(track => track.stop()); cancelAnimationFrame(frame); };
     const canvas = document.createElement('canvas');
@@ -152,12 +142,12 @@ export function QrScanner({ onScan, close }: { onScan: (payment: QrPayment) => v
     const visibility = () => { if (document.hidden) { stop(); setError('Camera paused. Retry when you are ready.'); } };
     document.addEventListener('visibilitychange', visibility); void start();
     return () => { active = false; stop(); document.removeEventListener('visibilitychange', visibility); };
-  }, [onScan, native, retry]);
+  }, [onScan, retry]);
   return <div className="scanner">
     <p><Camera size={17} /> Scan the recipient’s account QR code.</p>
-    {native ? <button type="button" className="btn primary" onClick={nativeScan}>Open camera scanner</button> : <video ref={video} playsInline muted aria-label="Camera preview" />}
+    <video ref={video} playsInline muted aria-label="Camera preview" />
     {error && <p className="feedback error" role="alert">{error}</p>}
-    <div className="button-row">{!native && error && <button type="button" className="btn secondary compact" onClick={() => setRetry(value => value + 1)}>Retry camera</button>}<button type="button" className="btn secondary compact" onClick={close}>Close scanner</button></div>
+    <div className="button-row">{error && <button type="button" className="btn secondary compact" onClick={() => setRetry(value => value + 1)}>Retry camera</button>}<button type="button" className="btn secondary compact" onClick={close}>Close scanner</button></div>
   </div>;
 }
 
@@ -165,11 +155,25 @@ export function PaymentHub({ account, onPay, initialMode = 'pay' }: { account: A
   const [tab, setTab] = useState<'pay' | 'receive'>(initialMode);
   const [qrMode, setQrMode] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [nativeScanning, setNativeScanning] = useState(false);
   const [error, setError] = useState('');
   const scanned = useCallback((payment: QrPayment) => {
     if (payment.number === account.number) { setError('This is your own QR code. Scan another account’s code to send money.'); setScanning(false); return; }
     setError(''); setScanning(false); onPay(payment);
   }, [account.number, onPay]);
+  async function startScanner() {
+    setError('');
+    if (!Capacitor.isNativePlatform()) { setScanning(true); return; }
+    if (nativeScanning) return;
+    setNativeScanning(true);
+    try {
+      const { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } = await import('@capacitor/barcode-scanner');
+      const result = await CapacitorBarcodeScanner.scanBarcode({ hint: CapacitorBarcodeScannerTypeHint.QR_CODE, scanInstructions: 'Scan a project account QR code' });
+      if (result.ScanResult) scanned(parseAccountQr(result.ScanResult));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to open the scanner. Check camera permission or upload a QR image.');
+    } finally { setNativeScanning(false); }
+  }
   const unavailable = account.status !== 'Active' || account.payment_locked;
   return <div className="payments-screen"><div className="page-heading"><p className="eyebrow">PAYMENTS</p><h1>Scan & pay</h1><p>Send and receive money between accounts in this project.</p></div>
     <div className="tab-bar" role="group" aria-label="Payment mode"><button aria-pressed={tab === 'pay'} onClick={() => { setTab('pay'); setScanning(false); setQrMode(false); setError(''); }}>Send money</button><button aria-pressed={tab === 'receive'} onClick={() => { setTab('receive'); setScanning(false); setQrMode(false); setError(''); }}>Receive money</button></div>
@@ -178,7 +182,7 @@ export function PaymentHub({ account, onPay, initialMode = 'pay' }: { account: A
       <div className={qrMode ? 'payment-method-heading' : undefined}><span className="icon-box payment-heading-icon"><QrCode size={26} /></span><div><h2 id="payment-method-title">{qrMode ? 'Pay with QR' : 'Pay another account'}</h2><p className="muted payment-intro">{qrMode ? 'Use an account QR code.' : 'Choose how you want to pay.'}</p></div></div>
       {unavailable ? <p className="feedback error">{account.status !== 'Active' ? 'Your account is frozen. Contact support.' : 'Your outgoing payments are locked. Unlock them in Profile & settings.'}</p> : <>
         {qrMode ? <div className="form-stack payment-qr-controls">
-          {scanning ? <QrScanner onScan={scanned} close={() => setScanning(false)} /> : <button className="btn primary" onClick={() => setScanning(true)}><Camera size={18} /> Scan QR code</button>}
+          {scanning ? <QrScanner onScan={scanned} close={() => setScanning(false)} /> : <button className="btn primary" disabled={nativeScanning} onClick={startScanner}><Camera size={18} /> {nativeScanning ? 'Scanning…' : 'Scan QR code'}</button>}
           <QrImageInput onScan={scanned} />
         </div> : <div className="payment-options">
           <button type="button" className="payment-option payment-option-primary" onClick={() => setQrMode(true)}><span className="payment-option-icon"><ScanLine size={28} /></span><span className="payment-option-copy"><strong>Pay with QR</strong><span>Scan a QR code or upload an image</span></span><ChevronRight className="payment-option-chevron" size={25} /></button>
