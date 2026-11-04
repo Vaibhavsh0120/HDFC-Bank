@@ -18,6 +18,15 @@
       "tintColor": "#132A57",
       "versions": [
         {
+          "version": "1.6.1",
+          "buildVersion": "1006001",
+          "date": "2026-11-04T13:35:26Z",
+          "localizedDescription": "- Center the “ACCOUNT RECOVERY” heading in password and transaction-PIN reset emails.\n- Add a clear instruction for copying the selectable code. Gmail's own copy-code control remains client-controlled; no nonfunctional email button is added.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.6.1/HDFC-Bank-1.6.1-ios-unsigned.ipa",
+          "size": 5764537,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "1.5.1",
           "buildVersion": "1005001",
           "date": "2026-11-04T12:41:21Z",
@@ -99,11 +108,11 @@
           "minOSVersion": "15.0"
         }
       ],
-      "version": "1.5.1",
-      "versionDate": "2026-11-04T12:41:21Z",
-      "versionDescription": "- Fix successful Face ID/fingerprint authentication leaving the app locked when the native container still reports an inactive state.\n- Distinguish iOS Face ID interruptions from genuine backgrounding. Keep cancellation locked, support retry, and ignore late authentication results after the app enters the background.\n- Validate saved native sessions before device authentication; expired sessions return to sign-in and connection failures offer retry.\n- Offer device-unlock setup only after the first successful sign-in has loaded the dashboard. Never offer setup on logged-out screens or merely because a token was restored.\n- Disable device unlock after logout, session expiry or signing in again. Remember the setup choice so later logins do not repeatedly show the offer; it can be enabled in Security settings.\n- Center the content-sized setup dialog within phone safe areas, including landscape.\n- Make the native Google sign-in button easier to see with a full-width outline, Google icon and larger tap target.\n- Show the dashboard balance and account number by default; the eye button hides or reveals both. Virtual-card details remain masked by default.",
-      "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.5.1/HDFC-Bank-1.5.1-ios-unsigned.ipa",
-      "size": 5762344,
+      "version": "1.6.1",
+      "versionDate": "2026-11-04T13:35:26Z",
+      "versionDescription": "- Center the “ACCOUNT RECOVERY” heading in password and transaction-PIN reset emails.\n- Add a clear instruction for copying the selectable code. Gmail's own copy-code control remains client-controlled; no nonfunctional email button is added.",
+      "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.6.1/HDFC-Bank-1.6.1-ios-unsigned.ipa",
+      "size": 5764537,
       "minOSVersion": "15.0",
       "appPermissions": {
         "entitlements": [],
