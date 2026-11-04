@@ -134,7 +134,9 @@ input::placeholder { color: #65748b; }
 .desktop-breadcrumb span { margin: 0 6px; color: #697c9a; }
 .desktop-breadcrumb strong { color: var(--ink); }
 .app-user, .profile-link { display: flex; align-items: center; gap: 8px; }
-.profile-link { min-height: 44px; font-weight: 650; font-size: 13px; }
+.app-user { min-width: 0; }
+.profile-link { min-height: 44px; min-width: 0; font-weight: 650; font-size: 13px; }
+.profile-link > span:last-child { min-width: 0; max-width: 32ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--soft); color: var(--blue); display: grid; place-items: center; flex: none; font-size: 14px; font-weight: 750; }
 .avatar.big { width: 56px; height: 56px; font-size: 22px; }
 .mobile-brand, .mobile-exit { display: none; }
