@@ -247,3 +247,8 @@ The team must maintain its own contribution history and pull-request reviews. Se
 ---
 
 <div align="center"><sub>Built for learning and technical discussion.</sub></div>
+
+Teammates
+- Vaibhav Sharma
+- Aashi agarwal
+- Yashika Pachori
