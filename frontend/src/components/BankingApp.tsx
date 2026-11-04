@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, ArrowUpRight, Check, Copy, CreditCard, Eye, EyeOff, History, LayoutGrid, LogOut, QrCode, UserRound, Wallet, X } from 'lucide-react';
 import { ApiError, message, money, request, type Account, type Dashboard, type Entry, type Kind, type Receipt, type Session } from '../lib/banking';
-import { AuthPage, Brand, Landing, Notice } from './PublicPages';
+import { AuthPage, Brand, Landing } from './PublicPages';
 import { EntryDetails, EntryList, HistoryPanel, MovementForm, pendingMovements, type PendingMovement } from './Transactions';
 import { PaymentHub, type QrPayment } from './AccountQr';
 import { CustomerSettings, VirtualCardPage } from './CustomerSettings';
 import { PasswordRecovery } from './PasswordRecovery';
 import { useIncomingTransfers } from '../lib/useIncomingTransfers';
+import { forgetSession, readSavedSession, saveSession, sessionKey } from '../lib/nativeSecurity';
+import { DeviceUnlockBoundary } from './DeviceUnlock';
+import { NotFound } from './NotFound';
 
-const sessionKey = 'hdfc.access';
 const items = [
   { route: 'overview', label: 'Overview', icon: LayoutGrid },
   { route: 'activity', label: 'Activity', icon: History },
@@ -48,17 +50,16 @@ function AccountCard({ account }: { account: Account }) {
       await navigator.clipboard.writeText(account.number);
       setCopied('Account number copied.');
     } catch {
-      setRevealed(true);
-      setCopied('Select the account number to copy it.');
+      setCopied('Use the eye button to show the account number, then select it to copy.');
     }
   }
 
   return <section className="balance-card">
     <div className="balance-top"><span><Wallet size={18} /> {account.type} account</span><span className={'balance-status ' + (account.status === 'Frozen' ? 'frozen' : '')}><i />{account.status}</span></div>
-    <div className="balance-value"><p>Available balance</p><strong>{money.format(Number(account.balance))}</strong></div>
+    <div className="balance-value"><p>Available balance</p><strong>{revealed ? money.format(Number(account.balance)) : '₹ ••••••'}</strong></div>
     <div className="balance-bottom"><div><small>Account number</small><span className="account-number">{revealed ? account.number : '•••• •••• ' + account.number.slice(-4)}</span></div>
       <div className="card-buttons">
-        <button aria-label={revealed ? 'Hide account number' : 'Show account number'} className="card-button" onClick={() => setRevealed(!revealed)}>{revealed ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+        <button aria-label={revealed ? 'Hide balance and account number' : 'Show balance and account number'} aria-pressed={revealed} className="card-button" onClick={() => setRevealed(!revealed)}>{revealed ? <EyeOff size={18} /> : <Eye size={18} />}</button>
         <button aria-label="Copy account number" className="card-button" onClick={copy}>{copied.startsWith('Account') ? <Check size={18} /> : <Copy size={17} />}</button>
       </div>
     </div>
@@ -166,7 +167,7 @@ function CustomerArea({ token, section, detail, end }: { token: string; section:
         </div>
         {exitError && <div className="feedback error form-stack" role="alert"><p>{exitError}</p><button className="btn secondary compact" onClick={() => end(false)}>Sign out on this device</button></div>}
         {loadError && <div className="feedback error flex items-center justify-between gap-3" role="alert"><span>{loadError}</span><button className="btn secondary compact" onClick={() => { setLoadError(''); setRefresh(value => value + 1); }}>Retry</button></div>}
-        {!data && !loadError && <p className="panel panel-message" role="status">Loading your account…</p>}
+        {!data && !loadError && <DashboardSkeleton />}
         {data && <>
           {pending.length > 0 && <section className="feedback pending-notice" aria-label="Pending transactions">
             <strong>Transaction awaiting confirmation</strong>
@@ -216,7 +217,6 @@ function CustomerArea({ token, section, detail, end }: { token: string; section:
           </Modal>}
           {selected && <Modal title="Transaction details" close={() => setSelected(undefined)}><EntryDetails entry={selected} /></Modal>}
         </>}
-        <Notice />
       </main>
     </div>
   </div>;
@@ -227,51 +227,70 @@ export default function BankingApp() {
   const [token, setToken] = useState<string>();
   const [expired, setExpired] = useState(false);
   const [storageNotice, setStorageNotice] = useState('');
+  const [initialized, setInitialized] = useState(false);
+  const [freshLogin, setFreshLogin] = useState(false);
   useEffect(() => {
+    let active = true;
     const readRoute = () => {
       const next = window.location.hash.slice(1) || 'home';
       setRoute(next);
       if (next !== 'services') window.scrollTo(0, 0);
     };
-    const readLogin = () => {
+    const readLogin = async () => {
       try {
-        const saved = localStorage.getItem(sessionKey) || sessionStorage.getItem(sessionKey);
-        if (saved) { localStorage.setItem(sessionKey, saved); sessionStorage.removeItem(sessionKey); }
-        setToken(saved || undefined);
-      } catch { setStorageNotice('Browser storage is unavailable. Your login will not stay saved after closing this page.'); }
+        const saved = await readSavedSession();
+        if (active) setToken(saved);
+      } catch { if (active) setStorageNotice('Saved login is unavailable. Sign in again to continue.'); }
+      finally { if (active) setInitialized(true); }
     };
     readLogin();
     const changed = (event: StorageEvent) => { if (event.key === sessionKey) readLogin(); };
     window.addEventListener('storage', changed);
     readRoute();
     window.addEventListener('hashchange', readRoute);
-    return () => { window.removeEventListener('hashchange', readRoute); window.removeEventListener('storage', changed); };
+    return () => { active = false; window.removeEventListener('hashchange', readRoute); window.removeEventListener('storage', changed); };
   }, []);
 
   const end = useCallback((expired: boolean) => {
-    try { localStorage.removeItem(sessionKey); sessionStorage.removeItem(sessionKey); } catch { /* End the in-memory login even if storage is blocked. */ }
+    void forgetSession().catch(() => setStorageNotice('Saved login could not be cleared. Your current session has ended; check device storage before sharing this device.'));
     setToken(undefined);
+    setFreshLogin(false);
     setExpired(expired);
     window.location.hash = expired ? 'login' : 'home';
   }, []);
 
   function begin(session: Session) {
-    try { localStorage.setItem(sessionKey, session.token); } catch { setStorageNotice('Login could not be saved on this device. Keep this page open or allow browser storage.'); }
+    void saveSession(session.token).catch(() => setStorageNotice('Login could not be saved on this device. Keep this page open or allow secure storage.'));
     setExpired(false);
+    setFreshLogin(true);
     setToken(session.token);
     window.location.hash = 'overview';
   }
 
-  if (route === 'forgot-password') return <PasswordRecovery />;
+  if (!initialized) return <main className="startup-screen" aria-busy="true"><Brand /><p role="status">Opening your account…</p></main>;
   if (token) {
     const [base, detail] = route.split('/');
+    const known = ['home', 'services', 'login', 'register', 'receive', 'forgot-password', ...items.map(item => item.route)];
+    const knownDetails: Record<string, string[]> = { profile: ['details', 'security', 'nominee', 'recipients', 'preferences', 'help'], payments: ['receive'] };
+    if (!known.includes(base) || (detail && !knownDetails[base]?.includes(detail)) || route.split('/').length > 2) return <NotFound />;
     const section = base === 'receive' ? 'payments' : items.find(item => item.route === base)?.route ?? 'overview';
-    return <>{storageNotice && <p className="session-notice" role="status">{storageNotice}</p>}<CustomerArea key={token} token={token} section={section} detail={base === 'receive' ? 'receive' : detail} end={end} /></>;
+    return <DeviceUnlockBoundary key={token} end={end} freshLogin={freshLogin}>{storageNotice && <p className="session-notice" role="status">{storageNotice}</p>}{route === 'forgot-password' ? <PasswordRecovery /> : <CustomerArea token={token} section={section} detail={base === 'receive' ? 'receive' : detail} end={end} />}</DeviceUnlockBoundary>;
   }
+  if (route === 'forgot-password') return <PasswordRecovery />;
   if (route === 'home' || route === 'services') return <Landing />;
+  if (!['login', 'register', 'overview', 'activity', 'payments', 'payments/receive', 'receive', 'cards', 'profile', 'profile/details', 'profile/security', 'profile/nominee', 'profile/recipients', 'profile/preferences', 'profile/help'].includes(route)) return <NotFound />;
   const mode = route === 'register' ? 'register' : 'login';
   return <>
     {expired && mode === 'login' && <p className="session-notice" role="status">Your session ended. Sign in to continue.</p>}
     <AuthPage key={mode} mode={mode} onSession={begin} />
   </>;
+}
+
+function DashboardSkeleton() {
+  return <div className="dashboard-skeleton" role="status" aria-label="Loading your account" aria-busy="true">
+    <span className="sr-only">Loading your account…</span>
+    <div className="skeleton skeleton-title" aria-hidden="true" />
+    <div className="account-grid" aria-hidden="true"><div className="panel skeleton-card"><div className="skeleton" /><div className="skeleton skeleton-amount" /><div className="skeleton" /></div><div className="panel skeleton-card"><div className="skeleton" /><div className="skeleton skeleton-amount" /></div></div>
+    <div className="panel skeleton-card" aria-hidden="true"><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div>
+  </div>;
 }

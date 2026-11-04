@@ -1,0 +1,92 @@
+// Run with playwright-cli against the isolated loopback demo only.
+async (page) => {
+  const origin = 'http://127.0.0.1:4322';
+  const api = 'http://127.0.0.1:8011/api/';
+  const assert = (value, why) => { if (!value) throw new Error(why); };
+  const created = await page.request.post(api + 'auth/register/', { data: { name: 'Version Review', email: `v150-${Date.now()}@example.test`, password: 'Review!Ocean427' } });
+  assert(created.ok(), 'Registration failed');
+  const session = await created.json();
+  const headers = { Authorization: 'Bearer ' + session.token };
+  assert((await page.request.post(api + 'security/pin/', { headers, data: { pin: '1234' } })).ok(), 'PIN setup failed');
+  await page.goto(origin);
+  await page.evaluate(token => localStorage.setItem('hdfc.access', token), session.token);
+  await page.addInitScript(() => {
+    window.__landingFlashed = false;
+    new MutationObserver(() => { if (document.querySelector('.hero')) window.__landingFlashed = true; }).observe(document, { childList: true, subtree: true });
+  });
+  const response = await page.request.get(origin);
+  const html = await response.text();
+  assert(html.includes('Opening your account'), 'Server HTML has no neutral startup screen');
+  assert(!html.includes('Your money.In your hands'), 'Server HTML contains the public landing page');
+  await page.route(api + 'dashboard/', async route => {
+    const response = await route.fetch();
+    await new Promise(resolve => setTimeout(resolve, 700));
+    await route.fulfill({ response });
+  }, { times: 1 });
+  await page.goto(origin + '/#home');
+  await page.getByRole('status', { name: 'Loading your account' }).waitFor();
+  await page.getByRole('heading', { name: 'Welcome, Version' }).waitFor();
+  assert(!await page.evaluate(() => window.__landingFlashed), 'Landing page flashed during session restore');
+  assert((await page.locator('.balance-value').innerText()).includes('••••••'), 'Balance visible by default');
+  assert(!(await page.locator('.account-number').innerText()).includes(session.account.number), 'Full account number visible by default');
+  await page.getByRole('button', { name: 'Show balance and account number' }).click();
+  assert((await page.locator('.balance-value').innerText()).includes('₹0.00'), 'Eye did not reveal balance');
+  assert((await page.locator('.account-number').innerText()).includes(session.account.number), 'Eye did not reveal account number');
+  await page.getByRole('button', { name: 'Hide balance and account number' }).click();
+  await page.goto(origin + '/#profile/security');
+  await page.getByRole('heading', { name: 'Security', exact: true }).waitFor();
+  assert(await page.getByRole('heading', { name: 'Device unlock', exact: true }).count() === 0, 'Website exposes app-only security settings');
+
+  const geometry = [];
+  for (const width of [320, 390, 768, 1440, 1728]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(origin + '/#profile');
+    await page.getByRole('heading', { name: 'Profile & settings' }).waitFor();
+    const tiles = await page.locator('.settings-link').evaluateAll(elements => elements.map(e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, text: e.innerText }; }));
+    assert(Math.abs(tiles[0].y - tiles[1].y) < 1 && tiles[1].x > tiles[0].x, 'Settings are not two columns at ' + width);
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Horizontal overflow at ' + width);
+    geometry.push({ width, tiles });
+    await page.screenshot({ path: `artifacts/browser/v150-settings-${width}.png`, fullPage: true });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(origin + '/#cards');
+  await page.getByRole('button', { name: 'Create virtual card', exact: true }).click();
+  await page.getByLabel('Card network').selectOption('rupay');
+  await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
+  await page.getByRole('button', { name: 'Confirm card creation' }).click();
+  await page.getByText('Virtual card created.', { exact: true }).waitFor();
+  const card = page.getByRole('region', { name: 'Demo virtual debit card' });
+  assert((await card.innerText()).includes('RuPay'), 'RuPay choice not reflected');
+  assert((await page.locator('.virtual-number').innerText()).startsWith('••••'), 'New card not masked');
+  await page.getByRole('button', { name: 'Show card details' }).click();
+  const oldNumber = await page.locator('.virtual-number').innerText();
+  assert(/^60\d{2} \d{4} \d{4} \d{4}$/.test(oldNumber), 'Card number is not a natural numeric RuPay format');
+  await page.getByRole('button', { name: 'Hide card details' }).click();
+  await page.screenshot({ path: 'artifacts/browser/v150-card-390.png', fullPage: true });
+  await page.getByRole('button', { name: 'Freeze card', exact: true }).click();
+  await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
+  await page.getByRole('button', { name: 'Confirm freeze' }).click();
+  await page.getByText('Card frozen.', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Replace card or change network' }).click();
+  await page.getByLabel('Card network').selectOption('mastercard');
+  await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
+  await page.getByRole('button', { name: 'Replace card', exact: true }).click();
+  await page.getByText('Card replaced. Your previous card number is no longer active.', { exact: true }).waitFor();
+  assert((await card.innerText()).includes('Mastercard') && (await card.innerText()).includes('Frozen'), 'Replacement lost network or freeze state');
+  await page.getByRole('button', { name: 'Show card details' }).click();
+  assert(await page.locator('.virtual-number').innerText() !== oldNumber, 'Replacement reused the old number');
+  await page.reload();
+  await page.getByRole('button', { name: 'Show card details' }).waitFor();
+  assert((await page.locator('.virtual-number').innerText()).startsWith('••••'), 'Card did not hide after reload');
+  await page.goto(origin + '/#missing');
+  await page.getByRole('heading', { name: 'Page not found' }).waitFor();
+  await page.getByRole('link', { name: 'Go to account' }).click();
+  await page.getByRole('heading', { name: 'Welcome, Version' }).waitFor();
+  const missing = await page.goto(origin + '/missing-page');
+  assert(missing.status() === 404, 'Missing path did not return HTTP 404');
+  await page.getByRole('heading', { name: 'Page not found' }).waitFor();
+  await page.screenshot({ path: 'artifacts/browser/v150-404-390.png', fullPage: true });
+  await page.getByRole('link', { name: 'Go to account' }).click();
+  await page.getByRole('heading', { name: 'Welcome, Version' }).waitFor();
+  console.log(JSON.stringify({ passed: ['No public-page flash', 'Dashboard skeleton', 'Shared balance/account eye', 'App-only security controls', 'Two-column settings at five widths', 'Network selection and masked card/CVV', 'Freeze and replace preserve status', '404 paths and hash recovery'], geometry }, null, 2));
+}

@@ -244,6 +244,41 @@ class CustomerFlowTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + issue_token(self.other))
         self.assertIsNone(self.client.get('/api/card/').data['card'])
 
+    def test_card_network_number_and_replacement(self):
+        def assert_card(card, network, prefix):
+            self.assertEqual(card['network'], network)
+            self.assertRegex(card['number'], r'^' + prefix + r'[0-9]+$')
+            self.assertEqual(len(card['number']), 16)
+            self.assertEqual(card['last_four'], card['number'][-4:])
+            self.assertRegex(card['security_code'], r'^[0-9]{3}$')
+            digits = [int(d) for d in card['number']]
+            self.assertEqual(sum((d * 2 - 9 if d * 2 > 9 else d * 2) if i % 2 == 0 else d for i, d in enumerate(digits)) % 10, 0)
+
+        first = self.client.post('/api/card/', {'pin': '1234', 'network': 'rupay'}).data['card']
+        assert_card(first, 'rupay', '60')
+        # Repeated creation never changes an already issued card.
+        self.assertEqual(self.client.post('/api/card/', {'pin': '1234', 'network': 'visa'}).data['card'], first)
+        self.assertEqual(self.client.patch('/api/card/', {'pin': '9999', 'action': 'replace', 'network': 'mastercard'}).status_code, 403)
+        replaced = self.client.patch('/api/card/', {'pin': '1234', 'action': 'replace', 'network': 'mastercard'}).data['card']
+        assert_card(replaced, 'mastercard', '5[1-5]')
+        self.assertNotEqual(first['number'], replaced['number'])
+        self.assertEqual(self.client.get('/api/card/').data['card'], replaced)
+        self.assertEqual(VirtualCard.objects.count(), 1)
+        self.client.patch('/api/card/', {'pin': '1234', 'frozen': True})
+        self.assertTrue(self.client.get('/api/card/').data['card']['frozen'])
+        self.assertEqual(self.client.patch('/api/card/', {'pin': '1234', 'network': 'visa'}).status_code, 400)
+        self.assertEqual(self.client.patch('/api/card/', {'pin': '1234', 'action': 'replace', 'network': 'invalid'}).status_code, 400)
+        visa = self.client.patch('/api/card/', {'pin': '1234', 'action': 'replace', 'network': 'visa'}).data['card']
+        assert_card(visa, 'visa', '4')
+        self.assertTrue(visa['frozen'], 'Replacement must preserve the frozen state')
+
+    def test_frozen_account_cannot_replace_card(self):
+        before = self.client.post('/api/card/', {'pin': '1234'}).data['card']
+        Account.objects.filter(pk=self.account.pk).update(status=Account.Status.FROZEN)
+        result = self.client.patch('/api/card/', {'pin': '1234', 'action': 'replace', 'network': 'rupay'})
+        self.assertEqual(result.status_code, 403)
+        self.assertEqual(self.client.get('/api/card/').data['card'], before)
+
     def test_support_request_validation_and_account_isolation(self):
         self.assertEqual(self.client.post('/api/support/', {'category': 'Payment', 'message': 'bad'}).status_code, 400)
         reply = self.client.post('/api/support/', {'category': 'Payment', 'message': 'My receipt is not appearing in the account.'})

@@ -123,12 +123,28 @@ Free hosting may take time to wake after inactivity. The interface reports conne
 
 1. Set the GitHub repository variable `PUBLIC_API_URL` to the deployed HTTPS API origin.
 2. Open **Actions → Mobile release → Run workflow**.
-3. Choose Android, iOS or both, enter a new version such as `1.0.0`, and choose whether to publish.
+3. Choose Android, iOS or both, enter a new version (the 1.5.0 update uses `1.5.0`), and choose whether to publish.
 4. Download successful artifacts from the workflow run or, when publishing is selected, from GitHub Releases.
 
 Android APKs are signed using the project release key. Configure repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_ALIAS` before building. Keep a private age-encrypted recovery archive outside the repository. Keep it and the age identity safe. The v1.0.0 APK used a different debug key, so it must be uninstalled before installing a release signed with the project key.
 
-The iOS IPA is unsigned and needs Apple signing and provisioning before it can be installed. A release is published only when every selected build succeeds; an existing release version is not overwritten.
+The iOS IPA is unsigned and needs a compatible signing or LiveContainer setup. A release is published only when every selected build succeeds; an existing release version is not overwritten. Authored version notes come from [CHANGELOG.md](../CHANGELOG.md). If a future version has no authored section, GitHub generates commit notes and the workflow appends installation details.
+
+### LiveContainer source updates
+
+Add [this stable source URL](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/livecontainer/apps.json) in LiveContainer's source manager. The catalog includes only published, non-prerelease versions with a non-empty iOS IPA asset. Versions are sorted numerically; Android-only releases do not replace the latest iOS entry.
+
+After a successful manual iOS/combined publication, the mobile workflow calls `livecontainer-source.yml` explicitly. This works even though releases created using `GITHUB_TOKEN` do not trigger another release-event workflow. The source workflow also supports manual refreshes and externally published/edited/deleted release events. It writes only `apps.json` on the dedicated `livecontainer` branch using `contents: write`; it does not alter `main` or deploy the website. Concurrent source updates are serialized.
+
+For maintainers, `python scripts/release_tools.py source --output artifacts/apps.json` previews the catalog. Add `--publish` with `GH_TOKEN` to update it. `backfill --publish` updates existing GitHub release bodies from CHANGELOG; `--git-credentials` can use the configured local Git credential helper without writing credentials to disk. Catalog refreshes do not silently install updates in a user's container.
+
+### Native device unlock
+
+The first authenticated app session offers **Enable device unlock** and **Not now**, then remembers that device's choice. **Settings → Security → Device unlock** enables or disables it later. Enabling and disabling an existing lock require OS authentication. Device credentials are permitted as the biometric fallback; there is no new login PIN. The website does not expose this feature. Transaction PINs continue protecting payments and card writes.
+
+Native session tokens and the unlock preference use local Keychain/encrypted native storage through `@aparajita/capacitor-secure-storage`. Existing native local-storage sessions migrate to that store. Keychain sync is disabled; iOS uses device-only accessibility. Website tokens remain in browser storage. Device unlock gates the local interface and is not a replacement for server token validation or transaction authorization.
+
+An enabled session requires authentication on cold launch. Backgrounding removes the account interface and returning shows the locked screen; **Unlock app** retries authentication. Cancellation never opens the dashboard. **Sign in again** clears the saved local session so account credentials can establish a fresh session. A phone without a screen lock must configure one before enabling device unlock. The native generator adds the iOS `NSFaceIDUsageDescription`; Android biometric permissions are merged from the biometric library. Test the actual Face ID/fingerprint/passcode fallback, backgrounding and keychain persistence on the target phone and LiveContainer version.
 
 ## Testing
 
@@ -156,6 +172,7 @@ The ordinary local app uses production password hashing and MySQL rules; the iso
 .\.venv\Scripts\python backend\manage.py makemigrations --check --dry-run --settings=config.test_settings
 cd frontend
 npm run check
+npm test
 npm run build
 npm audit
 ```
@@ -179,7 +196,7 @@ Local development defaults to console emails. The isolated UI-review settings wr
 
 ### Account services
 
-Nominee records belong to the signed-in account, require a PIN to change, and require guardian details for minors. These project records do not create a legal bank nomination. Virtual cards have persistent issue/freeze controls and a clearly marked demo identifier; they cannot be used with merchants, ATMs or external card networks. Phone and email edits do not claim that contact details have been verified.
+Nominee records belong to the signed-in account, require a PIN to change, and require guardian details for minors. These project records do not create a legal bank nomination. Virtual cards store a random 16-digit, checksum-valid demo number, CVV, selected network and issue date. VISA, RuPay and Mastercard use corresponding numeric formats, without issuing real payment cards. PIN-protected replacement changes the number/CVV, restarts the three-year expiry and preserves the freeze state. Creation retries return the existing card. Migration `0006` assigns numeric details to existing demo cards while retaining their creation dates and freeze states. These cards cannot be used with merchants, ATMs or external card networks. Phone and email edits do not claim that contact details have been verified.
 
 The iOS shell includes safe-area spacing and a portrait fallback for embedded containers that report zero top inset. Android uses the native QR scanner, with image upload and account-number entry as alternatives. Browser camera scanning needs HTTPS or localhost; an HTTP LAN page can still upload a QR image.
 

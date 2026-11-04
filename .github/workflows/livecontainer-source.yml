@@ -1,0 +1,27 @@
+name: Update LiveContainer source
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  release:
+    types: [published, edited, deleted]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: livecontainer-source
+  cancel-in-progress: false
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refresh published iOS version history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/release_tools.py source --publish

@@ -99,6 +99,9 @@ if (platform === 'android') {
   const googleScheme = iosClientId.split('.').reverse().join('.');
   const plistPath = 'ios/App/App/Info.plist';
   let plist = readFileSync(plistPath, 'utf8');
+  if (!plist.includes('<key>NSFaceIDUsageDescription</key>')) {
+    plist = plist.replace('<dict>', '<dict>\n\t<key>NSFaceIDUsageDescription</key>\n\t<string>Use Face ID to unlock your account when device unlock is enabled.</string>');
+  }
   if (!plist.includes('<key>NSCameraUsageDescription</key>')) {
     if (!plist.includes('<dict>')) throw new Error('iOS Info.plist is missing its root dictionary.');
     plist = plist.replace(

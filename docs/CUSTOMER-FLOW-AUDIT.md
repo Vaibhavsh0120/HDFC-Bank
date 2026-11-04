@@ -4,6 +4,17 @@ This remains a student banking simulation using internal accounts and fictional 
 
 The [release review](RELEASE-REVIEW.md) contains the final security findings and current test results; [Setup and operations](SETUP.md) contains deployment and local MySQL instructions.
 
+## Version 1.5.0 follow-up
+
+- Saved-session startup renders a neutral server/client loading state; a DOM observer confirmed the public landing page never mounted for a saved login. Slow account responses show a dashboard skeleton.
+- The overview balance and full account number start masked and share one eye control. Card number/CVV start masked; an eye reveals them. Card creation, RuPay selection, freeze, replacement with Mastercard, preserved freeze state and remasking on reload passed against the isolated API.
+- Mobile settings retain two columns at 320, 390, 768, 1440 and 1728 pixels. The changed screens were reviewed in screenshots and measured directly for overflow. Unknown hash routes and missing HTTP paths render the custom 404 and return to the account successfully. The repeated footer notice was removed from all application/public screens.
+- Native integration was tested through the real plugin JavaScript with a simulated Capacitor bridge: legacy-session migration, the first-login offer, remembered decline, enable/disable confirmation, cold-open lock, background lock, cancellation, retry, a missing screen lock and a cancelled enable. This caught and fixed a native storage initialization hang caused by resolving a Promise with a Capacitor proxy. These checks do not simulate the phone's actual biometric hardware.
+- The existing end-to-end account/payment/recovery/settings smoke check passed after updating its balance-visibility and card-creation assertions. The isolated Django suite now has 56 tests: 54 passed and the 2 MySQL-only concurrency checks skipped on SQLite. Seven device-unlock policy tests and three release/source tests passed.
+- Android debug compilation succeeded with the authentication, secure-storage and app-lifecycle plugins. Physical-device/LiveContainer authentication and iOS runtime behavior still need target-device confirmation; hosted build results are separate from this local evidence.
+
+The original review below records the pre-1.5.0 baseline.
+
 ## Completed flows
 
 | Area | Behavior and failure handling |

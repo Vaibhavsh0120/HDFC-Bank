@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from .models import Account, AccessSession, Beneficiary, EmailChallenge, Nominee, SupportRequest, VirtualCard
+from .cards import card_details
 from .pin import verify_pin
 from .serializers import account_data
 from .services import BankingError, account_id, recipient_for
@@ -322,8 +323,9 @@ def beneficiaries(request):
 
 
 def card_data(card):
-    today = timezone.localdate(card.created_at)
-    return {'identifier': str(card.identifier), 'last_four': card.identifier.hex[-4:].upper(),
+    today = timezone.localdate(card.issued_at)
+    return {'identifier': str(card.identifier), 'last_four': card.number[-4:],
+            'number': card.number, 'network': card.network, 'security_code': card.security_code,
             'frozen': card.frozen, 'expires': f'{today.month:02d}/{(today.year + 3) % 100:02d}', 'created_at': card.created_at.isoformat()}
 
 
@@ -337,13 +339,27 @@ def virtual_card(request):
             return Response({'detail': 'Card changes are unavailable while the account is frozen.'}, status=403)
         if error := require_pin(account, request.data):
             return error
-        if request.method == 'POST':
-            card, _ = VirtualCard.objects.get_or_create(account=account)
-        else:
-            if not card:
-                return Response({'detail': 'Create your virtual card first.'}, status=404)
-            card.frozen = serializers.BooleanField().run_validation(request.data.get('frozen'))
-            card.save(update_fields=['frozen'])
+        with transaction.atomic():
+            # Serialize card issuance/replacement and recheck account status under the lock.
+            account = Account.objects.select_for_update().get(pk=account.pk)
+            if account.status != Account.Status.ACTIVE:
+                return Response({'detail': 'Card changes are unavailable while the account is frozen.'}, status=403)
+            card = VirtualCard.objects.filter(account=account).first()
+            if request.method == 'POST':
+                network = serializers.ChoiceField(choices=VirtualCard.Network.values).run_validation(request.data.get('network', 'visa'))
+                card, _ = VirtualCard.objects.get_or_create(account=account, defaults={'network': network})
+            else:
+                if not card:
+                    return Response({'detail': 'Create your virtual card first.'}, status=404)
+                action = serializers.ChoiceField(choices=['freeze', 'replace']).run_validation(request.data.get('action', 'freeze'))
+                if action == 'replace':
+                    card.network = serializers.ChoiceField(choices=VirtualCard.Network.values).run_validation(request.data.get('network'))
+                    card.number, card.security_code = card_details(card.network)
+                    card.issued_at = timezone.now()
+                    card.save(update_fields=['network', 'number', 'security_code', 'issued_at'])
+                else:
+                    card.frozen = serializers.BooleanField().run_validation(request.data.get('frozen'))
+                    card.save(update_fields=['frozen'])
     return Response({'card': card_data(card) if card else None})
 
 

@@ -7,7 +7,7 @@
 
   Manage an account, move funds and follow your activity across the web and mobile.
 
-  [Open the website](https://hdfc-bank-web.onrender.com) · [Mobile releases](https://github.com/Vaibhavsh0120/HDFC-Bank/releases) · [Trainer study guide](docs/PROJECT-STUDY-GUIDE.md) · [Report an issue](https://github.com/Vaibhavsh0120/HDFC-Bank/issues)
+  [Open the website](https://hdfc-bank-web.onrender.com) · [Mobile releases](https://github.com/Vaibhavsh0120/HDFC-Bank/releases) · [LiveContainer source](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/livecontainer/apps.json) · [Release notes](CHANGELOG.md) · [Trainer study guide](docs/PROJECT-STUDY-GUIDE.md)
 </div>
 
 ---
@@ -24,8 +24,8 @@
 | **Administration** | Review customers, accounts and transactions, and manage account status through Django admin. |
 | **Scan & pay** | Scan with the native camera or web camera, upload a QR image, or enter an account number. Receive QR codes support an optional amount and note, and can be saved or shared. |
 | **Profile & settings** | Edit name, email, phone and address; manage a nominee, saved recipients, outgoing-payment lock and incoming alerts. |
-| **Security and recovery** | Set or change a transaction PIN, recover a forgotten PIN or password with an email code, and stay signed in across browser restarts for up to 30 days. |
-| **Cards and support** | Create and freeze a demonstration virtual card, save receipts, export statements, and track support requests with administrator replies. |
+| **Security and recovery** | Optional device unlock in the native app using Face ID, fingerprint or the phone's screen lock; transaction PIN and email recovery; saved sessions for up to 30 days. Balance and account number start hidden. |
+| **Cards and support** | Choose VISA, RuPay or Mastercard for a numeric demo card; reveal/hide its details, freeze/unfreeze or replace it; save receipts, export statements, and track support requests. |
 
 <p align="center">
   <img src="frontend/public/account-mobile.png" height="300" alt="Mobile account overview" />
@@ -101,6 +101,12 @@ Open [localhost:4322](http://127.0.0.1:4322/), register two fictional users, dep
 
 This preview ignores hosted database credentials and uses `backend/demo.sqlite3`. Recovery emails are saved under ignored `artifacts/emails/`. It is intended for sequential walkthroughs; use MySQL to test concurrent payments. On Linux/macOS, use `python3` and `.venv/bin/python`; mysqlclient may require your OS's MySQL development libraries.
 
+## Mobile app and LiveContainer
+
+Add the [HDFC Bank source URL](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/livecontainer/apps.json) in LiveContainer's source manager. It lists published iOS IPAs and their release notes. Publishing an iOS or combined build through **Actions → Mobile release** automatically refreshes the same source URL; Android-only and unpublished builds do not change its iOS version. Refresh the source in LiveContainer to see updates. This updates the catalog; it does not silently install apps on your phone.
+
+On the first native app login, choose **Enable device unlock** or **Not now**. Change this later under **Settings → Security → Device unlock**. Enabled sessions lock when the app goes into the background and at the next cold launch. Authentication uses the phone's system prompt, including its passcode/password fallback. No app login PIN is created. The website has no device-unlock prompt or setting; the existing transaction PIN still protects payments and card changes.
+
 For **MySQL, devices on the same Wi-Fi, administrator creation, environment variables, hosting and mobile builds**, see [Setup and operations](docs/SETUP.md). Test settings and their fast password hashes must never be deployed.
 
 ## Verify the project
@@ -109,6 +115,7 @@ For **MySQL, devices on the same Wi-Fi, administrator creation, environment vari
 .\.venv\Scripts\python backend\manage.py test banking --settings=config.test_settings
 cd frontend
 npm run check
+npm test
 npm run build
 npm audit
 ```
@@ -125,6 +132,7 @@ The [verification workflow](.github/workflows/verify.yml) runs MySQL tests, sche
 | [Setup and operations](docs/SETUP.md) | Local MySQL, LAN devices, environment, deployment, email and mobile releases. |
 | [Release review](docs/RELEASE-REVIEW.md) | Findings, fixes, evidence and remaining release checks. |
 | [Customer-flow audit](docs/CUSTOMER-FLOW-AUDIT.md) | Customer journeys, browser reproduction and device-test boundaries. |
+| [Release notes](CHANGELOG.md) | Changes in every published version and 1.5.0. |
 
 ```text
 backend/             Django API, domain services, migrations and tests
@@ -140,7 +148,7 @@ render.yaml          Frontend and API hosting configuration
 - Fictional funds stay inside this project's database. There is no external UPI, real-money payment network, merchant card processing or regulated KYC.
 - Email/password registration and contact edits do not verify email ownership. Google identities are not automatically linked to existing password accounts.
 - Hosted recovery needs a configured sender. Local email tests do not prove inbox delivery.
-- Camera scanning, native file sharing and Google sign-in need physical-device validation. The iOS package is unsigned and requires Apple signing/provisioning.
+- Camera scanning, native file sharing, Google sign-in and device authentication need physical-device validation. iOS packages are unsigned and require a compatible signing or LiveContainer setup. LiveContainer keychain/Face ID behavior depends on its host and device configuration.
 - The team must provide its actual contributions and match the trainer's rubric. The project has one Django domain app and no custom banking many-to-many model.
 
 ## Team
