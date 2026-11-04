@@ -23,6 +23,8 @@
 | **Activity and statements** | Search and filter transactions, inspect receipts and open a mini-statement. |
 | **Administration** | Review customers, accounts and transactions, and manage account status through Django admin. |
 
+<img src="frontend/public/account-mobile.png" width="260" alt="Mobile account overview" />
+
 ## Contents
 
 - [Local network setup](#local-network-setup)
@@ -33,6 +35,7 @@
 - [Testing](#testing)
 - [Project structure](#project-structure)
 - [How transactions work](#how-transactions-work)
+- [Study guide for the college review](docs/PROJECT-STUDY-GUIDE.md)
 
 ## Local network setup
 
@@ -87,7 +90,7 @@ The script prints the APK path. Install it on an Android device connected to the
 
 ## Development setup
 
-For a quick setup on one computer, use the local scripts above for MySQL. A fresh manual setup can also use SQLite by leaving `DB_HOST` unset.
+Use the local scripts above for MySQL, or configure a local MySQL database manually as shown below.
 
 ```powershell
 py -3.12 -m venv .venv
@@ -95,7 +98,12 @@ py -3.12 -m venv .venv
 if (!(Test-Path backend\.env)) { Copy-Item backend\.env.example backend\.env }
 if (!(Test-Path frontend\.env)) { Copy-Item frontend\.env.example frontend\.env }
 $env:DJANGO_DEBUG = "1"
-$env:DB_HOST = ""
+$env:BANK_LOCAL_MYSQL = "1"
+$env:DB_HOST = "127.0.0.1"
+$env:DB_PORT = "3306"
+$env:DB_NAME = "hdfc_bank_local"
+$env:DB_USER = "root"
+$env:DB_PASSWORD = Read-Host "MySQL password"
 $env:DJANGO_ALLOWED_HOSTS = "localhost,127.0.0.1"
 $env:CORS_ORIGINS = "http://localhost:4321,http://127.0.0.1:4321"
 .\.venv\Scripts\python backend\manage.py migrate
@@ -120,7 +128,7 @@ The two apps have their own environment files. Plaintext `.env` files are ignore
 | File | Purpose |
 | --- | --- |
 | `backend/.env` | Django, allowed hosts and origins, database and optional TLS settings. |
-| `frontend/.env` | `PUBLIC_API_URL`, the API origin embedded when the frontend is built. |
+| `frontend/.env` | The API origin and public iOS Google client ID embedded when the frontend is built. |
 | `backend/.env.age` | Encrypted backend deployment settings. |
 | `frontend/.env.age` | Encrypted frontend deployment settings. |
 
@@ -128,7 +136,7 @@ The backend deployment uses `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED
 
 On the configured machine, run `ageu` inside the relevant app directory to decrypt its backup. Run `agel` there after updating its plaintext `.env`. Keep the age identity private and outside the repository.
 
-For Google sign-in, set `GOOGLE_CLIENT_ID` on the backend to a Google web OAuth client ID and authorize the frontend HTTPS origin in Google Cloud. Sign-in is available on secure web origins. Native WebViews and plain HTTP LAN origins use password sign-in. Google identities are not automatically linked to existing password accounts because password registration does not verify email ownership.
+For Google sign-in, set `GOOGLE_CLIENT_ID` on the backend to a Google web OAuth client ID and authorize the frontend HTTPS origin in Google Cloud. Set `PUBLIC_GOOGLE_IOS_CLIENT_ID` in the frontend environment for iOS builds; the release workflow accepts a repository variable of the same name. Register the Android package and SHA-1 of each signing certificate in the same Google Cloud project. Web sign-in requires a secure origin; plain HTTP LAN websites use password sign-in. Native Google sign-in requires internet access, and local debug APKs need a separate OAuth client for their debug signing certificate. Google identities are not automatically linked to existing password accounts because password registration does not verify email ownership.
 
 **Restoring the encrypted backups gives the apps their hosted configuration.** Use the local scripts or the example files for local development, and take care not to run tests or migrations against the hosted database unintentionally.
 
@@ -159,11 +167,16 @@ The iOS IPA is unsigned and needs Apple signing and provisioning before it can b
 
 ## Testing
 
-For local SQLite testing, use an environment without hosted `DB_*` values.
+For local MySQL testing, use a local account with permission to create a separate test database.
 
 ```powershell
 $env:DJANGO_DEBUG = "1"
-$env:DB_HOST = ""
+$env:BANK_LOCAL_MYSQL = "1"
+$env:DB_HOST = "127.0.0.1"
+$env:DB_PORT = "3306"
+$env:DB_NAME = "hdfc_bank_local"
+$env:DB_USER = "root"
+$env:DB_PASSWORD = Read-Host "MySQL password"
 .\.venv\Scripts\python backend\manage.py test banking
 cd frontend
 npm run check
@@ -177,6 +190,7 @@ The Django suite covers authentication, transaction validation, retries, account
 ```text
 backend/            Django settings, REST endpoints, services and tests
 frontend/           Astro, React, assets and Capacitor configuration
+docs/               Project study guide and backend walkthrough
 scripts/            Windows local network start and stop scripts
 .github/workflows/  Manual mobile release workflow
 render.yaml         Render service configuration
@@ -187,6 +201,16 @@ render.yaml         Render service configuration
 Balance changes and their ledger entry commit together. Transfers acquire account locks in a consistent order. A request identifier makes a repeated confirmation return the original entry. If the response is interrupted, the interface retains the request on that device so it can be checked again.
 
 The mini-statement merges ordered account activity and retains the latest entries in a bounded circular buffer.
+
+## Implementation notes
+
+- Local MySQL uses an explicit loopback-only mode so hosted TLS settings cannot leak into a local connection. Hosted MySQL verifies the Aiven certificate.
+- Incoming transfers are checked while the account is open, and transaction identifiers let a customer safely retry an interrupted confirmation.
+- Transfers and withdrawals require a transaction PIN. Incorrect attempts are locked temporarily.
+- Account QR codes contain an internal account number. Scanning fills the transfer form, and the recipient is confirmed before a transfer is submitted.
+- The local network scripts serve a built frontend separately from development servers. This avoids conflicts when another Astro process is running.
+
+The team must maintain its own contribution history and pull-request reviews. See Django's user and group administration for built-in many-to-many role relationships.
 
 ---
 

@@ -7,7 +7,9 @@ from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+LOCAL_MYSQL = os.getenv("BANK_LOCAL_MYSQL") == "1"
+if not LOCAL_MYSQL:
+    load_dotenv(BASE_DIR / ".env")
 
 
 def csv(name, default=""):
@@ -57,8 +59,10 @@ TEMPLATES = [{
 
 if host := os.getenv("DB_HOST"):
     options = {"init_command": "SET sql_mode='STRICT_TRANS_TABLES'", "connect_timeout": 5}
-    ca = os.getenv("DB_SSL_CA")
-    if certificate := os.getenv("DB_SSL_CA_BASE64"):
+    if LOCAL_MYSQL and host not in ("127.0.0.1", "localhost", "::1"):
+        raise ImproperlyConfigured("BANK_LOCAL_MYSQL requires a loopback database host.")
+    ca = None if LOCAL_MYSQL else os.getenv("DB_SSL_CA")
+    if certificate := (None if LOCAL_MYSQL else os.getenv("DB_SSL_CA_BASE64")):
         with tempfile.NamedTemporaryFile(prefix="bank-ca-", suffix=".pem", delete=False) as ca_file:
             ca_file.write(base64.b64decode(certificate, validate=True))
             ca = ca_file.name
@@ -66,6 +70,8 @@ if host := os.getenv("DB_HOST"):
         raise ImproperlyConfigured("Set DB_SSL_CA to the MySQL CA certificate path.")
     if ca:
         options.update(ssl={"ca": ca}, ssl_mode="VERIFY_IDENTITY")
+    elif LOCAL_MYSQL:
+        options["ssl_mode"] = "DISABLED"
     DATABASES = {"default": {
         "ENGINE": "django.db.backends.mysql", "HOST": host,
         "PORT": os.getenv("DB_PORT", "3306"), "NAME": os.getenv("DB_NAME", "bank"),
@@ -73,13 +79,7 @@ if host := os.getenv("DB_HOST"):
         "OPTIONS": options, "CONN_MAX_AGE": 60, "CONN_HEALTH_CHECKS": True,
     }}
 else:
-    if not DEBUG:
-        raise ImproperlyConfigured("Set DB_HOST for production.")
-    DATABASES = {"default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-        "OPTIONS": {"transaction_mode": "IMMEDIATE", "timeout": 10},
-    }}
+    raise ImproperlyConfigured("Set DB_HOST for the MySQL database.")
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": f"django.contrib.auth.password_validation.{validator}"}

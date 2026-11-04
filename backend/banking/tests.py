@@ -7,6 +7,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
 from django.db import connection, connections
 from importlib import import_module
@@ -54,6 +55,7 @@ class BankingTests(APITestCase):
         cache.clear()
         self.alice = self.register("Alice Rao", "alice@example.test")
         self.bob = self.register("Bob Patel", "bob@example.test")
+        Account.objects.update(pin_hash=make_password("1234"))
 
     def register(self, name, email):
         reply = self.client.post("/api/auth/register/", {"name": name, "email": email, "password": self.password})
@@ -64,7 +66,11 @@ class BankingTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + session["token"])
 
     def move(self, kind, amount, **extras):
-        return self.client.post("/api/movements/", {"kind": kind, "amount": amount, "request_id": str(uuid4()), **extras})
+        return self.client.post("/api/movements/", {
+            "kind": kind, "amount": amount, "request_id": str(uuid4()),
+            **({"pin": "1234"} if kind in ("withdraw", "transfer") else {}),
+            **extras,
+        })
 
     def test_registration_login_and_logout(self):
         self.assertEqual(Account.objects.count(), 2)
@@ -123,6 +129,83 @@ class BankingTests(APITestCase):
         self.assertEqual(self.move("deposit", "10").status_code, 400)
         self.assertFalse(Entry.objects.exists())
 
+    def test_pin_setup_and_debit_requirement(self):
+        self.authorize(self.alice)
+        Account.objects.filter(owner__username="alice@example.test").update(pin_hash="")
+        self.assertEqual(self.client.get("/api/security/pin/").data["configured"], False)
+        self.assertEqual(self.move("deposit", "20").status_code, 201)
+        self.assertEqual(self.move("withdraw", "5").status_code, 403)
+        for invalid in ("123", "1234567", "12a4", " 1234 "):
+            self.assertEqual(self.client.post("/api/security/pin/", {"pin": invalid}).status_code, 400)
+        response = self.client.post("/api/security/pin/", {"pin": "5678"})
+        self.assertEqual(response.data["configured"], True)
+        account = Account.objects.get(owner__username="alice@example.test")
+        self.assertNotEqual(account.pin_hash, "5678")
+        self.assertTrue(check_password("5678", account.pin_hash))
+        self.assertEqual(self.client.post("/api/security/pin/", {"pin": "1111"}).status_code, 409)
+        self.assertEqual(self.move("withdraw", "5", pin="5678").status_code, 201)
+
+    def test_pin_failures_persist_and_lock_out_debits(self):
+        self.authorize(self.alice)
+        self.move("deposit", "100")
+        for _ in range(4):
+            self.assertEqual(self.move("withdraw", "1", pin="9999").status_code, 400)
+        self.assertEqual(self.move("withdraw", "1", pin="9999").status_code, 429)
+        self.assertEqual(self.move("withdraw", "1", pin="1234").status_code, 429)
+        self.assertIsNotNone(self.client.get("/api/security/pin/").data["locked_until"])
+        account = Account.objects.get(owner__username="alice@example.test")
+        self.assertEqual(account.pin_failures, 5)
+        self.assertEqual(account.balance, Decimal("100.00"))
+        Account.objects.filter(pk=account.pk).update(pin_locked_until=timezone.now() - timedelta(seconds=1))
+        self.assertEqual(self.move("withdraw", "1").status_code, 201)
+        account.refresh_from_db()
+        self.assertEqual(account.pin_failures, 0)
+        self.assertIsNone(account.pin_locked_until)
+
+    def test_completed_debit_can_be_replayed_without_pin(self):
+        self.authorize(self.alice)
+        self.move("deposit", "20")
+        request_id = str(uuid4())
+        result = self.move("withdraw", "5", request_id=request_id)
+        self.assertEqual(result.status_code, 201)
+        replay = self.client.post("/api/movements/", {
+            "kind": "withdraw", "amount": "5", "request_id": request_id,
+        })
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.data["entry"]["reference"], result.data["entry"]["reference"])
+        self.assertEqual(replay.data["account"]["balance"], "15.00")
+        changed = self.client.post("/api/movements/", {
+            "kind": "withdraw", "amount": "6", "request_id": request_id,
+        })
+        self.assertEqual(changed.status_code, 409)
+
+    def test_pin_change_requires_current_pin_and_shares_lockout(self):
+        self.authorize(self.alice)
+        self.assertEqual(self.client.patch("/api/security/pin/", {
+            "current_pin": "9999", "new_pin": "5678",
+        }).status_code, 400)
+        account = Account.objects.get(owner__username="alice@example.test")
+        self.assertEqual(account.pin_failures, 1)
+        self.assertTrue(check_password("1234", account.pin_hash))
+        self.assertEqual(self.client.patch("/api/security/pin/", {
+            "current_pin": "1234", "new_pin": "12a4",
+        }).status_code, 400)
+        result = self.client.patch("/api/security/pin/", {
+            "current_pin": "1234", "new_pin": "5678",
+        })
+        self.assertEqual(result.status_code, 200)
+        account.refresh_from_db()
+        self.assertEqual(account.pin_failures, 0)
+        self.assertTrue(check_password("5678", account.pin_hash))
+        self.assertFalse(check_password("1234", account.pin_hash))
+        for _ in range(5):
+            self.client.patch("/api/security/pin/", {"current_pin": "1111", "new_pin": "2222"})
+        self.assertEqual(self.client.patch("/api/security/pin/", {
+            "current_pin": "5678", "new_pin": "2222",
+        }).status_code, 429)
+        account.refresh_from_db()
+        self.assertTrue(check_password("5678", account.pin_hash))
+
     def test_transfer_retry_history_and_account_isolation(self):
         self.authorize(self.alice)
         self.assertEqual(self.move("deposit", "125.50").status_code, 201)
@@ -175,7 +258,7 @@ class BankingTests(APITestCase):
         source.save(update_fields=["balance"])
         with patch("banking.services.Entry.objects.create", side_effect=RuntimeError("write failed")):
             with self.assertRaises(RuntimeError):
-                post_entry(source.pk, Instruction("transfer", Decimal("10"), uuid4(), recipient_id=target.pk))
+                post_entry(source.pk, Instruction("transfer", Decimal("10"), uuid4(), recipient_id=target.pk), pin="1234")
         source.refresh_from_db()
         target.refresh_from_db()
         self.assertEqual((source.balance, target.balance), (Decimal("20"), Decimal("0")))
@@ -306,13 +389,13 @@ class GoogleSignInTests(APITestCase):
 class ConcurrencyTests(TransactionTestCase):
     def test_simultaneous_debits_cannot_overdraw(self):
         owner = get_user_model().objects.create(username="parallel")
-        account = Account.objects.create(owner=owner, balance=Decimal("50"))
+        account = Account.objects.create(owner=owner, balance=Decimal("50"), pin_hash=make_password("1234"))
         gate = Barrier(2)
 
         def attempt():
             try:
                 gate.wait(timeout=10)
-                post_entry(account.pk, Instruction("withdraw", Decimal("40"), uuid4()))
+                post_entry(account.pk, Instruction("withdraw", Decimal("40"), uuid4()), pin="1234")
                 return "posted"
             except InsufficientFunds:
                 return "declined"

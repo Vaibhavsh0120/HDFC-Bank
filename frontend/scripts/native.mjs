@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import sharp from 'sharp';
 
+if (existsSync('.env')) process.loadEnvFile('.env');
 const platform = process.argv[2];
 if (!['android', 'ios'].includes(platform)) throw new Error('Choose android or ios.');
 if (platform === 'ios' && process.platform !== 'darwin') throw new Error('iOS generation requires macOS.');
@@ -18,6 +19,27 @@ cap('sync', platform);
 
 const icon = readFileSync('public/mark.svg');
 if (platform === 'android') {
+  // Align the plugin's compile-only browser dependency and Google's runtime helper
+  // on a version compatible with the Capacitor 7 Android SDK and Gradle plugin.
+  const rootGradlePath = 'android/build.gradle';
+  let rootGradle = readFileSync(rootGradlePath, 'utf8');
+  rootGradle = rootGradle.replace("resolutionStrategy.force 'androidx.browser:browser:1.9.0'", "resolutionStrategy.force 'androidx.browser:browser:1.8.0'");
+  const browserConstraint = "resolutionStrategy.force 'androidx.browser:browser:1.8.0'";
+  if (!rootGradle.includes(browserConstraint)) {
+    rootGradle += `\nsubprojects { configurations.configureEach { ${browserConstraint} } }\n`;
+  }
+  writeFileSync(rootGradlePath, rootGradle);
+  const manifestPath = 'android/app/src/main/AndroidManifest.xml';
+  let manifest = readFileSync(manifestPath, 'utf8');
+  if (!manifest.includes('android.permission.CAMERA')) {
+    if (!manifest.includes('</manifest>')) throw new Error('Android manifest is missing its closing tag.');
+    manifest = manifest.replace(
+      '</manifest>',
+      '    <uses-permission android:name="android.permission.CAMERA" />\n' +
+        '    <uses-feature android:name="android.hardware.camera.any" android:required="false" />\n</manifest>',
+    );
+    writeFileSync(manifestPath, manifest);
+  }
   const gradle = 'android/app/build.gradle';
   const build = readFileSync(gradle, 'utf8')
     .replace(/^\s*versionCode 1$/m, '\n        versionCode((project.findProperty("bankVersionCode") ?: "1").toInteger())')
@@ -49,6 +71,35 @@ if (platform === 'android') {
   }
   writeFileSync(`${resources}/values/bank.xml`, '<resources><color name="bank_launcher_background">#132a57</color></resources>\n');
 } else {
+  const iosClientId = process.env.PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
+  if (!/^[A-Za-z0-9-]+\.apps\.googleusercontent\.com$/.test(iosClientId)) {
+    throw new Error('Set PUBLIC_GOOGLE_IOS_CLIENT_ID to the iOS Google OAuth client ID before building.');
+  }
+  const googleScheme = iosClientId.split('.').reverse().join('.');
+  const plistPath = 'ios/App/App/Info.plist';
+  let plist = readFileSync(plistPath, 'utf8');
+  if (!plist.includes('<key>NSCameraUsageDescription</key>')) {
+    if (!plist.includes('<dict>')) throw new Error('iOS Info.plist is missing its root dictionary.');
+    plist = plist.replace(
+      '<dict>',
+      '<dict>\n\t<key>NSCameraUsageDescription</key>\n' +
+        '\t<string>Allow camera access to scan an account QR code.</string>',
+    );
+  }
+  if (!plist.includes(googleScheme)) {
+    if (plist.includes('<key>CFBundleURLTypes</key>')) throw new Error('Add the Google URL scheme to the existing CFBundleURLTypes entry.');
+    plist = plist.replace('<dict>', '<dict>\n\t<key>CFBundleURLTypes</key>\n\t<array><dict><key>CFBundleURLSchemes</key><array><string>' + googleScheme + '</string></array></dict></array>');
+  }
+  writeFileSync(plistPath, plist);
+  const delegatePath = 'ios/App/App/AppDelegate.swift';
+  let delegate = readFileSync(delegatePath, 'utf8');
+  if (!delegate.includes('import GoogleSignIn')) delegate = delegate.replace('import Capacitor', 'import Capacitor\nimport GoogleSignIn');
+  if (!delegate.includes('GIDSignIn.sharedInstance.handle(url)')) {
+    const proxy = 'return ApplicationDelegateProxy.shared.application(app, open: url, options: options)';
+    if (!delegate.includes(proxy)) throw new Error('Could not locate the iOS URL handler.');
+    delegate = delegate.replace(proxy, 'return GIDSignIn.sharedInstance.handle(url) || ApplicationDelegateProxy.shared.application(app, open: url, options: options)');
+  }
+  writeFileSync(delegatePath, delegate);
   const folder = 'ios/App/App/Assets.xcassets/AppIcon.appiconset';
   for (const file of readdirSync(folder).filter(name => name.endsWith('.png'))) {
     const path = `${folder}/${file}`;

@@ -5,6 +5,9 @@ const config: CapacitorConfig = {
   appName: 'HDFC Bank',
   webDir: 'dist',
   backgroundColor: '#f5f7fb',
+  plugins: {
+    SocialLogin: { providers: { google: true, facebook: false, apple: false, twitter: false } },
+  },
 };
 
 export default config;

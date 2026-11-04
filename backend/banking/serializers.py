@@ -39,11 +39,21 @@ class InstructionSerializer(serializers.Serializer):
     request_id = serializers.UUIDField()
     recipient = serializers.RegexField(regex=r"^9[01][0-9]{10}$", required=False)
     description = serializers.CharField(max_length=140, allow_blank=True, default="")
+    pin = serializers.RegexField(regex=r"^[0-9]{4,6}$", required=False, write_only=True)
 
     def validate(self, data):
         if (data["kind"] == Entry.Kind.TRANSFER) != ("recipient" in data):
             raise serializers.ValidationError({"recipient": "A recipient is required only for transfers."})
         return data
+
+
+class PinSerializer(serializers.Serializer):
+    pin = serializers.RegexField(regex=r"^[0-9]{4,6}$", trim_whitespace=False, write_only=True)
+
+
+class PinChangeSerializer(serializers.Serializer):
+    current_pin = serializers.RegexField(regex=r"^[0-9]{4,6}$", trim_whitespace=False, write_only=True)
+    new_pin = serializers.RegexField(regex=r"^[0-9]{4,6}$", trim_whitespace=False, write_only=True)
 
 
 def account_data(account):

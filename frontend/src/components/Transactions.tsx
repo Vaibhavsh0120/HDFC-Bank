@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
 import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronRight, Search, Wallet } from 'lucide-react';
 import { ApiError, message, money, timestamp, type Account, type Entry, type History, type Instruction, type Kind, type Receipt, type Recipient } from '../lib/banking';
+import { QrScanner } from './AccountQr';
 
-export type AuthedRequest = <T>(path: string, body?: object) => Promise<T>;
+export type AuthedRequest = <T>(path: string, body?: object, method?: 'PATCH') => Promise<T>;
 export const labels: Record<Kind, string> = { deposit: 'Deposit', withdraw: 'Withdrawal', transfer: 'Transfer' };
 export type PendingMovement = { instruction: Instruction; recipient?: Recipient };
 
@@ -91,7 +92,7 @@ export function HistoryPanel({ send, onSelect }: { send: AuthedRequest; onSelect
     return () => { current = false; };
   }, [send, query, kind, page, retry]);
 
-  function search(event: FormEvent) {
+  function search(event: SubmitEvent) {
     event.preventDefault();
     setPage(1);
     setQuery(input.trim());
@@ -129,9 +130,32 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(!!pending);
   const [error, setError] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinConfirmation, setPinConfirmation] = useState('');
+  const [pinStatus, setPinStatus] = useState<{ configured: boolean; locked_until: string | null }>();
+  const [pinStatusError, setPinStatusError] = useState('');
+  const [pinRetry, setPinRetry] = useState(0);
   const title = kind === 'deposit' ? 'Deposit funds' : kind === 'withdraw' ? 'Withdraw funds' : 'Transfer funds';
 
-  async function prepare(event: FormEvent) {
+  useEffect(() => {
+    if (kind === 'deposit') return;
+    let active = true;
+    setPinStatusError('');
+    send<{ configured: boolean; locked_until: string | null }>('security/pin/').then(value => {
+      if (active) setPinStatus(value);
+    }, error => {
+      if (active) setPinStatusError(message(error));
+    });
+    return () => { active = false; };
+  }, [kind, send, pinRetry]);
+
+  const scanned = useCallback((number: string) => {
+    setRecipient(number);
+    setScanning(false);
+  }, []);
+
+  async function prepare(event: SubmitEvent) {
     event.preventDefault();
     setError('');
     if (!/^[0-9]{1,10}(\.[0-9]{1,2})?$/.test(amount) || Number(amount) <= 0) {
@@ -158,8 +182,27 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
 
   async function confirm() {
     if (!review || busy) return;
+    if (kind !== 'deposit' && !/^[0-9]{4,6}$/.test(pin)) {
+      setError('Enter your 4 to 6 digit transaction PIN.');
+      return;
+    }
+    if (kind !== 'deposit' && !pinStatus?.configured && pin !== pinConfirmation) {
+      setError('The PIN entries do not match.');
+      return;
+    }
     setBusy(true);
     setError('');
+    if (kind !== 'deposit' && !pinStatus?.configured) {
+      try {
+        await send('security/pin/', { pin });
+        setPinStatus({ configured: true, locked_until: null });
+        setPinConfirmation('');
+      } catch (error) {
+        setError(message(error));
+        setBusy(false);
+        return;
+      }
+    }
     const key = pendingKey(account.number, review.instruction.request_id);
     try {
       localStorage.setItem(key, JSON.stringify(review));
@@ -170,7 +213,8 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
       return;
     }
     try {
-      const result = await send<Receipt>('movements/', review.instruction);
+      const result = await send<Receipt>('movements/', { ...review.instruction, ...(kind !== 'deposit' && { pin }) });
+      setPin('');
       localStorage.removeItem(key);
       onPendingChange();
       setReceipt(result);
@@ -203,16 +247,34 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
       {review.recipient && <div><dt>Recipient</dt><dd>{review.recipient.name}<small>{review.recipient.number}</small></dd></div>}
       {description.trim() && <div><dt>Description</dt><dd>{description.trim()}</dd></div>}
     </dl>
+    {kind !== 'deposit' && <>
+      {pinStatusError ? <div className="feedback error" role="alert">{pinStatusError} <button type="button" onClick={() => setPinRetry(value => value + 1)}>Try again</button></div>
+        : !pinStatus ? <p className="muted" role="status">Checking transaction security…</p>
+        : <>
+          <label>{pinStatus.configured ? 'Transaction PIN' : 'Create transaction PIN'}
+            <input type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]{4,6}" maxLength={6} value={pin} onChange={event => setPin(event.target.value)} placeholder="4 to 6 digits" />
+          </label>
+          {!pinStatus.configured && <label>Confirm transaction PIN
+            <input type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]{4,6}" maxLength={6} value={pinConfirmation} onChange={event => setPinConfirmation(event.target.value)} placeholder="Re-enter PIN" />
+            <small>Use this PIN to authorise withdrawals and transfers.</small>
+          </label>}
+          {pinStatus.locked_until && new Date(pinStatus.locked_until).getTime() > Date.now() && <p className="feedback error">PIN is temporarily locked. Try again after {timestamp.format(new Date(pinStatus.locked_until))} IST.</p>}
+        </>}
+    </>}
     {error && <p className="feedback error" role="alert">{error}{uncertain && ' Retry this confirmation to check the same request.'}</p>}
     <div className="dialog-actions">
       <button className="btn secondary" disabled={busy || uncertain} onClick={() => { setReview(undefined); setError(''); }}>Edit details</button>
-      <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? 'Confirming…' : uncertain ? 'Retry confirmation' : 'Confirm ' + labels[kind].toLowerCase()}</button>
+      <button className="btn primary" disabled={busy || (kind !== 'deposit' && !pinStatus)} onClick={confirm}>{busy ? 'Confirming…' : uncertain ? 'Retry confirmation' : 'Confirm ' + labels[kind].toLowerCase()}</button>
     </div>
   </div>;
 
   return <form className="form-stack" onSubmit={prepare}>
     <p className="muted">Available balance <strong>{money.format(Number(account.balance))}</strong></p>
-    {kind === 'transfer' && <label>Recipient account number<input inputMode="numeric" pattern="9[01][0-9]{10}" maxLength={12} required value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="12-digit account number" /></label>}
+    {kind === 'transfer' && <>
+      <label>Recipient account number<input inputMode="numeric" pattern="9[01][0-9]{10}" maxLength={12} required value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="12-digit account number" /></label>
+      {!scanning ? <button type="button" className="text-link scan-toggle" onClick={() => setScanning(true)}>Scan account QR code</button>
+        : <QrScanner onScan={scanned} close={() => setScanning(false)} />}
+    </>}
     <label>Amount (INR)<input inputMode="decimal" placeholder="0.00" required maxLength={13} value={amount} onChange={e => setAmount(e.target.value)} /></label>
     <label>Description <small>Optional</small><input value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder="Add a note" /></label>
     {error && <p className="feedback error" role="alert">{error}</p>}

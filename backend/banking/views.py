@@ -17,7 +17,8 @@ from google.oauth2 import id_token
 
 from .authentication import issue_token
 from .models import Account, Entry, GoogleIdentity
-from .serializers import GoogleCredentialSerializer, InstructionSerializer, LoginSerializer, RegistrationSerializer, User, account_data, entry_data
+from .serializers import GoogleCredentialSerializer, InstructionSerializer, LoginSerializer, PinChangeSerializer, PinSerializer, RegistrationSerializer, User, account_data, entry_data
+from .pin import pin_status, set_pin, verify_pin
 from .services import BankingError, Instruction, account_id, mini_statement, post_entry, recipient_for
 
 
@@ -142,6 +143,32 @@ def own_account(request):
     return Account.objects.select_related("owner").get(owner=request.user)
 
 
+@api_view(["GET", "POST", "PATCH"])
+def transaction_pin(request):
+    account = own_account(request)
+    if request.method == "POST":
+        serializer = PinSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if not set_pin(account.pk, serializer.validated_data["pin"]):
+            return Response({"detail": "A transaction PIN is already set."}, status=409)
+        account.refresh_from_db()
+    elif request.method == "PATCH":
+        serializer = PinChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = verify_pin(
+            account.pk, serializer.validated_data["current_pin"],
+            new_pin=serializer.validated_data["new_pin"],
+        )
+        if result == "not_configured":
+            return Response({"detail": "Set a transaction PIN before continuing."}, status=403)
+        if result == "locked":
+            return Response({"detail": "Too many incorrect PIN attempts. Try again in 15 minutes."}, status=429)
+        if result != "ok":
+            return Response({"detail": "Incorrect transaction PIN."}, status=400)
+        account.refresh_from_db()
+    return Response(pin_status(account))
+
+
 @api_view(["GET"])
 def dashboard(request):
     account = own_account(request)
@@ -167,11 +194,12 @@ def movement(request):
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data.copy()
     number = data.pop("recipient", None)
+    pin = data.pop("pin", None)
     source = own_account(request)
     try:
-        entry, created = post_entry(source.pk, Instruction(
-            **data, recipient_id=account_id(number) if number else None,
-        ))
+        target_id = account_id(number) if number else None
+        instruction = Instruction(**data, recipient_id=target_id)
+        entry, created = post_entry(source.pk, instruction, pin=pin)
     except BankingError as exc:
         return Response({"detail": str(exc)}, status=exc.status)
     source.refresh_from_db(fields=["balance", "status"])

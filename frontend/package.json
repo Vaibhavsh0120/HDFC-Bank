@@ -18,11 +18,14 @@
     "@capacitor/android": "~7.6.0",
     "@capacitor/core": "~7.6.0",
     "@capacitor/ios": "~7.6.0",
+    "@capgo/capacitor-social-login": "^7.20.0",
     "@fontsource-variable/inter": "^5.2.0",
     "@fontsource-variable/manrope": "^5.2.0",
     "@tailwindcss/vite": "^4.1.0",
     "astro": "^7.4.5",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.468.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwindcss": "^4.1.0"
@@ -32,7 +35,7 @@
     "@capacitor/cli": "~7.6.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.5",
     "typescript": "~5.9.0"
   }
 }

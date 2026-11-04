@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, ArrowUpRight, Check, Copy, Eye, EyeOff, History, LayoutGrid, LogOut, UserRound, Wallet, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, ArrowUpRight, Check, Copy, Eye, EyeOff, History, LayoutGrid, LogOut, QrCode, UserRound, Wallet, X } from 'lucide-react';
 import { ApiError, message, money, request, timestamp, type Account, type Dashboard, type Entry, type Kind, type Receipt, type Session } from '../lib/banking';
 import { AuthPage, Brand, Landing, Notice } from './PublicPages';
 import { EntryDetails, EntryList, HistoryPanel, MovementForm, pendingMovements, type PendingMovement } from './Transactions';
+import { ReceiveQr } from './AccountQr';
+import { SecurityPin } from './SecurityPin';
+import { useIncomingTransfers } from '../lib/useIncomingTransfers';
 
 const sessionKey = 'hdfc.access';
 const items = [
   { route: 'overview', label: 'Overview', icon: LayoutGrid },
   { route: 'activity', label: 'Activity', icon: History },
+  { route: 'receive', label: 'Receive', icon: QrCode },
   { route: 'profile', label: 'Profile', icon: UserRound },
 ] as const;
 type Section = typeof items[number]['route'];
@@ -83,14 +87,27 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
     window.addEventListener('storage', refreshPending);
     return () => window.removeEventListener('storage', refreshPending);
   }, [refreshPending]);
-  const send = useCallback(async <T,>(path: string, body?: object) => {
+  const send = useCallback(async <T,>(path: string, body?: object, method?: 'PATCH') => {
     try {
-      return await request<T>(path, { token, body });
+      return await request<T>(path, { token, body, method });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) end(true);
       throw error;
     }
   }, [token, end]);
+  const { notices, latestAccount, dismiss } = useIncomingTransfers(send, data?.account.number);
+  const lastNotice = useRef('');
+
+  useEffect(() => {
+    if (latestAccount) setData(previous => previous ? { ...previous, account: latestAccount } : previous);
+  }, [latestAccount]);
+  useEffect(() => {
+    const last = notices.at(-1);
+    if (last && last.reference !== lastNotice.current) {
+      lastNotice.current = last.reference;
+      setRefresh(value => value + 1);
+    }
+  }, [notices]);
 
   useEffect(() => {
     let current = true;
@@ -137,6 +154,12 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
         </div>
       </header>
       <main className="dashboard">
+        <div className="transfer-notices" aria-live="polite">
+          {notices.map(entry => <div className="transfer-notice" key={entry.reference} role="status">
+            <span><strong>Transfer received</strong><small>{money.format(Number(entry.amount))} from {entry.counterparty?.name || 'another account'}</small></span>
+            <button className="icon-button" aria-label="Dismiss notification" onClick={() => dismiss(entry.reference)}><X size={18} /></button>
+          </div>)}
+        </div>
         {exitError && <p className="feedback error" role="alert">{exitError}</p>}
         {loadError && <div className="feedback error flex items-center justify-between gap-3" role="alert"><span>{loadError}</span><button className="btn secondary compact" onClick={() => { setLoadError(''); setRefresh(value => value + 1); }}>Retry</button></div>}
         {!data && !loadError && <p className="panel panel-message" role="status">Loading your account…</p>}
@@ -160,6 +183,7 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
                   <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('deposit'); }}><span className="icon-box"><ArrowDownToLine size={19} /></span>Deposit</button>
                   <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('withdraw'); }}><span className="icon-box"><ArrowUpFromLine size={19} /></span>Withdraw</button>
                   <button disabled={data.account.status !== 'Active'} onClick={() => { setResuming(undefined); setAction('transfer'); }}><span className="icon-box"><ArrowLeftRight size={19} /></span>Transfer</button>
+                  <a href="#receive"><span className="icon-box"><QrCode size={19} /></span>Receive</a>
                 </div>
               </section>
             </div>
@@ -177,6 +201,11 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
           {section === 'profile' && <>
             <div className="page-heading"><p className="eyebrow">PERSONAL DETAILS</p><h1>Your profile</h1><p>View your customer and account information.</p></div>
             <Profile account={data.account} />
+            <SecurityPin send={send} />
+          </>}
+          {section === 'receive' && <>
+            <div className="page-heading"><p className="eyebrow">SAVINGS ACCOUNT</p><h1>Receive funds</h1><p>Share your account details for an internal transfer.</p></div>
+            <ReceiveQr number={data.account.number} />
           </>}
           {action && <Modal title={action === 'deposit' ? 'Deposit funds' : action === 'withdraw' ? 'Withdraw funds' : 'Transfer funds'} close={() => setAction(undefined)}>
             <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} pending={resuming} onPendingChange={refreshPending} />

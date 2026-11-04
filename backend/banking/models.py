@@ -22,6 +22,9 @@ class Account(models.Model):
     )
     balance = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.ACTIVE)
+    pin_hash = models.CharField(max_length=128, blank=True, editable=False)
+    pin_failures = models.PositiveSmallIntegerField(default=0, editable=False)
+    pin_locked_until = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

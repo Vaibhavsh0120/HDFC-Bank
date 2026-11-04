@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 
-from banking import views
+from banking import updates, views
 
 admin.site.site_header = "HDFC Bank Operations"
 admin.site.site_title = "HDFC Bank Operations"
@@ -15,6 +15,8 @@ urlpatterns = [
     path("api/auth/google/", views.google_login),
     path("api/auth/logout/", views.logout),
     path("api/dashboard/", views.dashboard),
+    path("api/security/pin/", views.transaction_pin),
+    path("api/activity/updates/", updates.incoming_updates),
     path("api/recipient/", views.recipient),
     path("api/movements/", views.movement),
     path("api/history/", views.history),

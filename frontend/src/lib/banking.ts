@@ -26,11 +26,11 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(path: string, { token, body }: { token?: string; body?: object } = {}): Promise<T> {
+export async function request<T>(path: string, { token, body, method }: { token?: string; body?: object; method?: 'GET' | 'POST' | 'PATCH' } = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(apiUrl + '/api/' + path, {
-      method: body ? 'POST' : 'GET',
+      method: method ?? (body ? 'POST' : 'GET'),
       headers: {
         ...(body ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: 'Bearer ' + token } : {}),
