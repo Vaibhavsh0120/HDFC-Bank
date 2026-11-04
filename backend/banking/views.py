@@ -70,9 +70,17 @@ def login(request):
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
     user = authenticate(request, username=data["email"].lower(), password=data["password"])
-    if user is None or not Account.objects.filter(owner=user).exists():
+    if user is None:
         return Response({"detail": "Check your email address and password."}, status=401)
-    return session_response(user)
+    with transaction.atomic():
+        current = User.objects.select_for_update().filter(pk=user.pk, is_active=True).first()
+        # Password recovery/change uses the same user lock. An authentication
+        # snapshot taken before it must not mint a new session afterwards.
+        if (current is None or current.password != user.password
+                or current.username != data["email"].lower()
+                or not Account.objects.filter(owner=current).exists()):
+            return Response({"detail": "Check your email address and password."}, status=401)
+        return session_response(current)
 
 
 @api_view(["GET"])

@@ -175,6 +175,30 @@ class CustomerFlowTests(APITestCase):
             'email': self.user.email, 'code': code, 'password': 'Another!OceanBright29',
         }).status_code, 400)
 
+    def test_login_cannot_issue_token_for_credentials_changed_during_authentication(self):
+        from django.contrib.auth import authenticate
+
+        self.client.credentials()
+        for changes in ({'password': make_password('New!OceanBright28')},
+                        {'is_active': False}, {'username': 'changed@example.test'}):
+            with self.subTest(changes=list(changes)):
+                User.objects.filter(pk=self.user.pk).update(
+                    password=make_password(self.password), is_active=True, username=self.user.email,
+                )
+                AccessSession.objects.filter(user=self.user).delete()
+
+                def changed_credentials(request, **credentials):
+                    snapshot = authenticate(request, **credentials)
+                    User.objects.filter(pk=self.user.pk).update(**changes)
+                    return snapshot
+
+                with patch('banking.views.authenticate', side_effect=changed_credentials):
+                    result = self.client.post('/api/auth/login/', {
+                        'email': self.user.email, 'password': self.password,
+                    })
+                self.assertEqual(result.status_code, 401)
+                self.assertFalse(AccessSession.objects.filter(user=self.user).exists())
+
     def test_nominee_crud_minor_guardian_and_isolation(self):
         self.assertIsNone(self.client.get('/api/nominee/').data['nominee'])
         data = {'name': 'Child', 'relationship': 'Child', 'date_of_birth': str(timezone.localdate().replace(year=timezone.localdate().year - 10)), 'address': 'New Delhi', 'pin': '1234'}
