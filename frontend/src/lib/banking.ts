@@ -2,6 +2,7 @@ export type Kind = 'deposit' | 'withdraw' | 'transfer';
 export type Account = {
   name: string; email: string; number: string; type: string;
   balance: string; status: 'Active' | 'Frozen'; created_at: string;
+  phone: string; address: string; payment_locked: boolean; transfer_alerts: boolean; has_password: boolean;
 };
 export type Recipient = { name: string; number: string };
 export type Entry = {
@@ -26,7 +27,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(path: string, { token, body, method, timeoutMs = 45000 }: { token?: string; body?: object; method?: 'GET' | 'POST' | 'PATCH'; timeoutMs?: number } = {}): Promise<T> {
+export async function request<T>(path: string, { token, body, method, timeoutMs = 45000 }: { token?: string; body?: object; method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; timeoutMs?: number } = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(apiUrl + '/api/' + path, {
@@ -46,7 +47,8 @@ export async function request<T>(path: string, { token, body, method, timeoutMs 
   const data = await response.json().catch(() => null);
   if (!response.ok || data === null) {
     const detail = typeof data?.detail === 'string' ? data.detail : null;
-    const validation = data && Object.values(data).flat().find(value => typeof value === 'string');
+    const flatten = (value: unknown): string[] => typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(flatten) : [];
+    const validation = flatten(data)[0];
     throw new ApiError(detail || validation || 'The service is temporarily unavailable. Try again shortly.', response.status);
   }
   return data as T;

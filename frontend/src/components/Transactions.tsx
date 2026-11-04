@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
 import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronRight, Search, Wallet } from 'lucide-react';
 import { ApiError, message, money, timestamp, type Account, type Entry, type History, type Instruction, type Kind, type Receipt, type Recipient } from '../lib/banking';
-import { QrScanner } from './AccountQr';
+import { QrScanner, QrImageInput, type QrPayment } from './AccountQr';
+import { saveFile } from '../lib/files';
 
-export type AuthedRequest = <T>(path: string, body?: object, method?: 'PATCH') => Promise<T>;
+export type AuthedRequest = <T>(path: string, body?: object, method?: 'PATCH' | 'DELETE') => Promise<T>;
 export const labels: Record<Kind, string> = { deposit: 'Deposit', withdraw: 'Withdrawal', transfer: 'Transfer' };
 export type PendingMovement = { instruction: Instruction; recipient?: Recipient };
 
@@ -61,7 +62,14 @@ export function EntryList({ entries, onSelect }: { entries: Entry[]; onSelect: (
 }
 
 export function EntryDetails({ entry }: { entry: Entry }) {
-  return <dl className="details">
+  const [error, setError] = useState('');
+  async function save() {
+    setError('');
+    const text = ['HDFC Bank student project receipt', 'Virtual funds only', 'Reference: ' + entry.reference, 'Amount: INR ' + entry.amount, 'Type: ' + labels[entry.kind], 'Direction: ' + entry.direction, 'Status: ' + entry.status, 'Date: ' + timestamp.format(new Date(entry.created_at)) + ' IST', ...(entry.counterparty ? ['Counterparty: ' + entry.counterparty.name + ' (' + entry.counterparty.number + ')'] : []), 'Note: ' + entry.description].join('\n');
+    try { await saveFile(new Blob([text], { type: 'text/plain;charset=utf-8' }), 'receipt-' + entry.reference + '.txt'); }
+    catch { setError('Unable to save receipt. Try again.'); }
+  }
+  return <><dl className="details">
     <div><dt>Amount</dt><dd>{money.format(Number(entry.amount))}</dd></div>
     <div><dt>Type</dt><dd>{labels[entry.kind]} · {entry.direction === 'credit' ? 'Credit' : 'Debit'}</dd></div>
     <div><dt>Status</dt><dd className="positive">{entry.status}</dd></div>
@@ -69,7 +77,7 @@ export function EntryDetails({ entry }: { entry: Entry }) {
     {entry.counterparty && <div><dt>{entry.direction === 'credit' ? 'Sender' : 'Recipient'}</dt><dd>{entry.counterparty.name}<small>{entry.counterparty.number}</small></dd></div>}
     {entry.description && <div><dt>Description</dt><dd>{entry.description}</dd></div>}
     <div><dt>Reference</dt><dd className="reference">{entry.reference}</dd></div>
-  </dl>;
+  </dl><button className="btn secondary compact receipt-save" onClick={save}>Save / share receipt</button>{error && <p role="alert" className="feedback error">{error}</p>}</>;
 }
 
 export function HistoryPanel({ send, onSelect }: { send: AuthedRequest; onSelect: (entry: Entry) => void }) {
@@ -79,6 +87,26 @@ export function HistoryPanel({ send, onSelect }: { send: AuthedRequest; onSelect
   const [page, setPage] = useState(1);
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState<{ data?: History; error?: string }>({});
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  async function exportStatement() {
+    setExporting(true); setExportError('');
+    try {
+      let index = 1;
+      const rows: Entry[] = [];
+      while (true) {
+        const result = await send<History>('history/?' + new URLSearchParams({ q: query, kind, page: String(index) }));
+        rows.push(...result.results);
+        if (!result.next) break;
+        index++;
+        if (index > 100) throw new Error('Too many transactions.');
+      }
+      const cell = (value: string) => '"' + (/^[=+@\-\t\r]/.test(value) ? "'" + value : value).replaceAll('"', '""') + '"';
+      const csv = ['Reference,Date (IST),Type,Direction,Amount (INR),Counterparty,Account,Note', ...rows.map(row => [row.reference, timestamp.format(new Date(row.created_at)), row.kind, row.direction, row.amount, row.counterparty?.name || '', row.counterparty?.number || '', row.description].map(cell).join(','))].join('\r\n');
+      await saveFile(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), 'account-statement.csv');
+    } catch { setExportError('Statement could not be exported. Narrow your search or try again.'); }
+    finally { setExporting(false); }
+  }
 
   useEffect(() => {
     let current = true;
@@ -99,6 +127,8 @@ export function HistoryPanel({ send, onSelect }: { send: AuthedRequest; onSelect
   }
 
   return <section className="panel">
+    <div className="panel-heading"><div><h2>Your transactions</h2><p>Export includes the current search and type filter.</p></div><button className="btn secondary compact" disabled={exporting} onClick={exportStatement}>{exporting ? 'Preparing statement…' : 'Export statement (CSV)'}</button></div>
+    {exportError && <p className="feedback error" role="alert">{exportError}</p>}
     <form className="history-filters" onSubmit={search}>
       <label className="search-field"><Search size={18} /><input aria-label="Search transactions" placeholder="Name, description or reference" value={input} maxLength={140} onChange={e => setInput(e.target.value)} /></label>
       <button className="btn secondary compact">Search</button>
@@ -118,13 +148,14 @@ export function HistoryPanel({ send, onSelect }: { send: AuthedRequest; onSelect
   </section>;
 }
 
-export function MovementForm({ kind, account, send, onReceipt, close, pending, onPendingChange }: {
+export function MovementForm({ kind, account, send, onReceipt, close, pending, onPendingChange, initial }: {
   kind: Kind; account: Account; send: AuthedRequest; onReceipt: (receipt: Receipt) => void; close: () => void;
   pending?: PendingMovement; onPendingChange: () => void;
+  initial?: QrPayment;
 }) {
-  const [amount, setAmount] = useState(pending?.instruction.amount ?? '');
-  const [recipient, setRecipient] = useState('');
-  const [description, setDescription] = useState(pending?.instruction.description ?? '');
+  const [amount, setAmount] = useState(pending?.instruction.amount ?? initial?.amount ?? '');
+  const [recipient, setRecipient] = useState(initial?.number ?? '');
+  const [description, setDescription] = useState(pending?.instruction.description ?? initial?.description ?? '');
   const [review, setReview] = useState<PendingMovement | undefined>(pending);
   const [receipt, setReceipt] = useState<Receipt>();
   const [busy, setBusy] = useState(false);
@@ -136,6 +167,13 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
   const [pinStatus, setPinStatus] = useState<{ configured: boolean; locked_until: string | null }>();
   const [pinStatusError, setPinStatusError] = useState('');
   const [pinRetry, setPinRetry] = useState(0);
+  const [payees, setPayees] = useState<Recipient[]>([]);
+  useEffect(() => {
+    if (kind !== 'transfer') return;
+    let active = true;
+    send<{ beneficiaries: Recipient[] }>('beneficiaries/').then(result => { if (active) setPayees(result.beneficiaries); }).catch(() => {});
+    return () => { active = false; };
+  }, [kind, send]);
   const title = kind === 'deposit' ? 'Deposit funds' : kind === 'withdraw' ? 'Withdraw funds' : 'Transfer funds';
 
   useEffect(() => {
@@ -150,14 +188,19 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
     return () => { active = false; };
   }, [kind, send, pinRetry]);
 
-  const scanned = useCallback((number: string) => {
-    setRecipient(number);
+  const scanned = useCallback((payment: QrPayment) => {
+    setRecipient(payment.number);
+    if (payment.amount) setAmount(payment.amount);
+    if (payment.description) setDescription(payment.description);
     setScanning(false);
   }, []);
 
   async function prepare(event: SubmitEvent) {
     event.preventDefault();
     setError('');
+    if (account.status !== 'Active' || (kind !== 'deposit' && account.payment_locked)) {
+      setError('Payments are unavailable. Check your account status and outgoing-payment lock.'); return;
+    }
     if (!/^[0-9]{1,10}(\.[0-9]{1,2})?$/.test(amount) || Number(amount) <= 0) {
       setError('Enter a positive amount with up to two decimal places.');
       return;
@@ -215,16 +258,14 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
     try {
       const result = await send<Receipt>('movements/', { ...review.instruction, ...(kind !== 'deposit' && { pin }) });
       setPin('');
-      localStorage.removeItem(key);
-      onPendingChange();
       setReceipt(result);
       onReceipt(result);
+      try { localStorage.removeItem(key); onPendingChange(); } catch { /* Replay remains safe if storage cleanup fails. */ }
     } catch (error) {
-      const unknown = uncertain || !(error instanceof ApiError) || error.status === 0 || error.status === 401 || error.status === 408 || error.status >= 500;
+      const unknown = !(error instanceof ApiError) || error.status === 0 || error.status === 401 || error.status === 408 || error.status >= 500;
       setUncertain(unknown);
       if (!unknown) {
-        localStorage.removeItem(key);
-        onPendingChange();
+        try { localStorage.removeItem(key); onPendingChange(); } catch { /* Retrying this request remains idempotent. */ }
       }
       setError(message(error));
     } finally {
@@ -264,16 +305,18 @@ export function MovementForm({ kind, account, send, onReceipt, close, pending, o
     {error && <p className="feedback error" role="alert">{error}{uncertain && ' Retry this confirmation to check the same request.'}</p>}
     <div className="dialog-actions">
       <button className="btn secondary" disabled={busy || uncertain} onClick={() => { setReview(undefined); setError(''); }}>Edit details</button>
-      <button className="btn primary" disabled={busy || (kind !== 'deposit' && !pinStatus)} onClick={confirm}>{busy ? 'Confirming…' : uncertain ? 'Retry confirmation' : 'Confirm ' + labels[kind].toLowerCase()}</button>
+      <button className="btn primary" disabled={busy || (kind !== 'deposit' && (!pinStatus || !!pinStatusError))} onClick={confirm}>{busy ? 'Confirming…' : uncertain ? 'Retry confirmation' : 'Confirm ' + labels[kind].toLowerCase()}</button>
     </div>
   </div>;
 
   return <form className="form-stack" onSubmit={prepare}>
     <p className="muted">Available balance <strong>{money.format(Number(account.balance))}</strong></p>
     {kind === 'transfer' && <>
+      {payees.length > 0 && <label>Saved recipient<select value={payees.some(row => row.number === recipient) ? recipient : ''} onChange={event => setRecipient(event.target.value)}><option value="">Choose a saved recipient</option>{payees.map(row => <option value={row.number} key={row.number}>{row.name} · {row.number.slice(-4)}</option>)}</select></label>}
       <label>Recipient account number<input inputMode="numeric" pattern="9[01][0-9]{10}" maxLength={12} required value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="12-digit account number" /></label>
       {!scanning ? <button type="button" className="text-link scan-toggle" onClick={() => setScanning(true)}>Scan account QR code</button>
         : <QrScanner onScan={scanned} close={() => setScanning(false)} />}
+      <QrImageInput onScan={scanned} />
     </>}
     <label>Amount (INR)<input inputMode="decimal" placeholder="0.00" required maxLength={13} value={amount} onChange={e => setAmount(e.target.value)} /></label>
     <label>Description <small>Optional</small><input value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder="Add a note" /></label>

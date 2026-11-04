@@ -18,6 +18,16 @@ def csv(name, default=""):
 
 DEBUG = os.getenv("DJANGO_DEBUG", "0" if os.getenv("RENDER") else "1") == "1"
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND') or ('banking.email_backend.ResendEmailBackend' if RESEND_API_KEY else 'django.core.mail.backends.smtp.EmailBackend' if os.getenv('EMAIL_HOST') or not DEBUG else 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', '1') == '1'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', '0') == '1'
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'HDFC Bank Student Project <noreply@example.com>')
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY") or (
     "django-insecure-local-development-key-never-use-in-production" if DEBUG else ""
 )
@@ -114,6 +124,6 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["banking.authentication.BankingAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
-    "DEFAULT_THROTTLE_RATES": {"access": "12/min", "recipient": "30/min"},
+    "DEFAULT_THROTTLE_RATES": {"access": "12/min", "recipient": "30/min", "security": "30/min", "recovery": "6/hour"},
     "NUM_PROXIES": 1 if os.getenv("RENDER") else 0,
 }

@@ -14,7 +14,7 @@ def issue_token(user):
     now = timezone.now()
     AccessSession.objects.filter(user=user, expires_at__lte=now).delete()
     AccessSession.objects.create(
-        user=user, digest=sha256(token.encode()).hexdigest(), expires_at=now + timedelta(hours=24),
+        user=user, digest=sha256(token.encode()).hexdigest(), expires_at=now + timedelta(days=30),
     )
     return token
 

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Account, Entry
+from .models import Account, Entry, SupportRequest
 
 
 @admin.register(Account)
@@ -8,6 +8,7 @@ class AccountAdmin(admin.ModelAdmin):
     list_display = ("number", "owner", "balance", "status", "created_at")
     list_filter = ("status",)
     search_fields = ("owner__username", "owner__first_name")
+    fields = ("number", "owner", "balance", "status", "created_at")
     readonly_fields = ("number", "owner", "balance", "created_at")
     list_select_related = ('owner',)
 
@@ -32,6 +33,20 @@ class EntryAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SupportRequest)
+class SupportRequestAdmin(admin.ModelAdmin):
+    list_display = ('reference', 'account', 'category', 'status', 'created_at')
+    list_filter = ('status', 'category')
+    fields = ('reference', 'account', 'category', 'message', 'created_at', 'status', 'response')
+    readonly_fields = ('reference', 'account', 'category', 'message', 'created_at')
+
+    def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):

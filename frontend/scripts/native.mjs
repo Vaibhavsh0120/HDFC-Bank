@@ -19,6 +19,11 @@ cap('sync', platform);
 
 const icon = readFileSync('public/mark.svg');
 if (platform === 'android') {
+  const variablesPath = 'android/variables.gradle';
+  let variables = readFileSync(variablesPath, 'utf8');
+  variables = variables.replace(/minSdkVersion\s*=\s*(\d+)/, (_, version) => `minSdkVersion = ${Math.max(26, Number(version))}`);
+  if (!/minSdkVersion\s*=\s*(?:2[6-9]|[3-9]\d)/.test(variables)) throw new Error('QR scanner requires Android API 26 or newer.');
+  writeFileSync(variablesPath, variables);
   // Align the plugin's compile-only browser dependency and Google's runtime helper
   // on a version compatible with the Capacitor 7 Android SDK and Gradle plugin.
   const rootGradlePath = 'android/build.gradle';
@@ -71,6 +76,22 @@ if (platform === 'android') {
   }
   writeFileSync(`${resources}/values/bank.xml`, '<resources><color name="bank_launcher_background">#132a57</color></resources>\n');
 } else {
+  writeFileSync('ios/App/App/PrivacyInfo.xcprivacy', `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>NSPrivacyAccessedAPITypes</key><array><dict>
+<key>NSPrivacyAccessedAPIType</key><string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+<key>NSPrivacyAccessedAPITypeReasons</key><array><string>C617.1</string></array>
+</dict></array></dict></plist>\n`);
+  const { default: xcode } = await import('xcode');
+  const projectPath = 'ios/App/App.xcodeproj/project.pbxproj';
+  const project = xcode.project(projectPath);
+  project.parseSync();
+  if (!project.hasFile('PrivacyInfo.xcprivacy')) {
+    const appGroup = project.findPBXGroupKey({ path: 'App' });
+    if (!appGroup) throw new Error('Could not find the iOS app resource group.');
+    project.addResourceFile('PrivacyInfo.xcprivacy', { target: project.getFirstTarget().uuid }, appGroup);
+    writeFileSync(projectPath, project.writeSync());
+  }
   const iosClientId = process.env.PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
   if (!/^[A-Za-z0-9-]+\.apps\.googleusercontent\.com$/.test(iosClientId)) {
     throw new Error('Set PUBLIC_GOOGLE_IOS_CLIENT_ID to the iOS Google OAuth client ID before building.');
