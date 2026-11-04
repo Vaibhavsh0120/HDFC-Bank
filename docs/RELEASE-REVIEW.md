@@ -78,7 +78,7 @@ Each functional defect was reproduced before its fix. Backend fixes include regr
 | Integrated payment UI regression | Teammates' fixture-based test passed separate manual/QR paths, validation, own/invalid QR handling, payment lock, Escape dismissal and simultaneous timed incoming notifications at four viewport widths. Fixtures do not contact a bank API. |
 | Android debug package | The final merged frontend was synchronized with Capacitor and `assembleDebug` passed using JDK 21. Generated project files/APK remain ignored; no mobile release was published. Gradle reported existing flat-directory and duplicate Kotlin-plugin configuration warnings. |
 
-Backend results were rerun with Django 5.2.19 and REST Framework 3.18.3. Local frontend checks used Node.js 26.13.0; the workflow selects Node 22 as declared by the project. MySQL test password hashes are deliberately fast; the ordinary app and sequential demo retain PBKDF2. No hosted database was used for these tests.
+Backend results were rerun with Django 5.2.19 and REST Framework 3.18.3. Local frontend checks used Node.js 26.13.0; the workflow selects Node 22.23.4 as declared by the project. MySQL test password hashes are deliberately fast; the ordinary app and sequential demo retain PBKDF2. No hosted database was used for these tests.
 
 The review preserved the existing design. Better Design tools were requested for principles, review, comprehension and spacing, but returned the monthly quota error. No Better Design score or completed measurement is claimed; direct screenshots, DOM widths, axe checks and flow testing supplied the available evidence.
 
