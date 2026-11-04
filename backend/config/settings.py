@@ -19,7 +19,13 @@ def csv(name, default=""):
 DEBUG = os.getenv("DJANGO_DEBUG", "0" if os.getenv("RENDER") else "1") == "1"
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND') or ('banking.email_backend.ResendEmailBackend' if RESEND_API_KEY else 'django.core.mail.backends.smtp.EmailBackend' if os.getenv('EMAIL_HOST') or not DEBUG else 'django.core.mail.backends.console.EmailBackend')
+BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND') or (
+    'banking.email_backend.BrevoEmailBackend' if BREVO_API_KEY else
+    'banking.email_backend.ResendEmailBackend' if RESEND_API_KEY else
+    'django.core.mail.backends.smtp.EmailBackend' if os.getenv('EMAIL_HOST') or not DEBUG else
+    'django.core.mail.backends.console.EmailBackend'
+)
 EMAIL_HOST = os.getenv('EMAIL_HOST', '')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')

@@ -4,6 +4,18 @@
 
 This is an educational banking simulation. The checks below support a trainer demonstration and source handoff; they do not certify a real banking system or guarantee a mark against a rubric that has not been supplied.
 
+## Version 1.6.0 follow-up
+
+Profile menus now use the dashboard width (three columns on large desktops, two on phones). Security has a two-column desktop layout. The redesigned card uses standard debit-card proportions, a masked number/CVV, clear status and separate PIN-protected controls. Five-width browser checks cover 320, 390, 768, 1440 and 1728 pixels without horizontal overflow.
+
+Sign-in method changes require password confirmation or a newly issued, server-verified Google identity token. Linking is explicit, identities cannot be shared across banking users, and Google-only accounts must add a password before unlinking. A user-row lock coordinates Google session creation and unlinking. Unit tests cover both methods, incorrect credentials, old/wrong Google proofs, account isolation, last-method protection and session revocation. Browser checks exercise the forms with a simulated Google selection; a live account-linking OAuth interaction remains a separate device/provider check.
+
+Brevo Free is configured for HTTPS recovery delivery on Render Free. Both PIN and password reset messages have HTML/plain-text content, centered titles, continuous six-digit codes and explicit subjects. A delivery/design preview was accepted by Brevo and independently found in the maintainer's Gmail inbox. Production endpoint verification is recorded separately after deployment. Google/Gmail decides whether to offer copy-code cards; no app mailbox access or guaranteed autofill is claimed.
+
+Local evidence: 63 Django tests (61 passed, two MySQL-only skips); seven device-unlock policy tests; three release/source tests; Astro check without errors/warnings; production build; account/payment smoke, card replacement/network checks, sign-in method UI and iOS/Android simulated-bridge regression checks. The user confirmed working Face ID on their actual iPhone after 1.5.1. Physical Android authentication and the newly built mobile packages still need device checks. Better Design's free monthly quota was exhausted, so its review tools returned no result; rendered screenshots and direct DOM measurements were used for this review.
+
+The [service inventory](SERVICES.md) documents the free service plans and each service's role. `.env.example` contains placeholders; `.env` is ignored, Render was configured separately, and PowerShell `agel` refreshed the tracked encrypted backend backup.
+
 ## Version 1.5.1 follow-up
 
 The patch addresses the reported iPhone unlock dead end and setup-dialog height. Device authentication success no longer depends on an immediate active-state read or a foreground event. Genuine iOS backgrounding still invalidates an in-progress attempt; Android authentication-activity interruptions do not trigger a second lock. Native session validation prevents authentication/setup prompts for expired logins. Setup is gated on a fresh login reaching the dashboard, and logout disables the lock while retaining the completed-choice marker.

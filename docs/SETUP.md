@@ -123,7 +123,7 @@ Free hosting may take time to wake after inactivity. The interface reports conne
 
 1. Set the GitHub repository variable `PUBLIC_API_URL` to the deployed HTTPS API origin.
 2. Open **Actions → Mobile release → Run workflow**.
-3. Choose Android, iOS or both, enter a new version (the current patch uses `1.5.1`), and choose whether to publish.
+3. Choose Android, iOS or both, enter a new version (the current release uses `1.6.0`), and choose whether to publish.
 4. Download successful artifacts from the workflow run or, when publishing is selected, from GitHub Releases.
 
 Android APKs are signed using the project release key. Configure repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_ALIAS` before building. Keep a private age-encrypted recovery archive outside the repository. Keep it and the age identity safe. The v1.0.0 APK used a different debug key, so it must be uninstalled before installing a release signed with the project key.
@@ -190,9 +190,15 @@ Password and PIN reset codes expire after 10 minutes, allow at most five wrong a
 
 For existing SMTP configuration, set `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, and the matching TLS/SSL options. The SMTP backend is selected automatically when `EMAIL_HOST` is present. Set only one of `EMAIL_USE_TLS` or `EMAIL_USE_SSL` to `1`.
 
-Render free services block standard SMTP ports. For that hosting plan, set `RESEND_API_KEY` and `DEFAULT_FROM_EMAIL` to a verified sender; the HTTPS email backend is selected automatically. See [Render's free-service limits](https://render.com/docs/free) and [Resend's sending API](https://resend.com/docs/api-reference/emails/send-email). No email credentials are included in source control. A new deployment is required after changing hosting configuration. Without a sender, production recovery reports that email delivery is unavailable.
+Render free services block standard SMTP ports. The deployed project uses Brevo Free (300 emails/day): set `BREVO_API_KEY` and a verified `DEFAULT_FROM_EMAIL`; the HTTPS backend is selected automatically. Complete Brevo phone/sender verification and create a key restricted to transactional email. `RESEND_API_KEY` remains an alternative for deployments with a verified sending domain. See [Render's free-service limits](https://render.com/docs/free) and [Resend's sending API](https://resend.com/docs/api-reference/emails/send-email). Plaintext email credentials are excluded from source control. Keep `.env.example` free of secrets, update the Render API environment separately, and run `agel` from `backend/` to refresh the encrypted `.env.age` backup. A new deployment is required after changing hosting configuration. Without a sender, production recovery reports that email delivery is unavailable.
+
+Both PIN and password recovery send styled HTML plus plain text. The centered title, contiguous six-digit code and explicit verification-code subject help email clients recognize the code. The reset forms use `autocomplete="one-time-code"`. Gmail copy-code cards and OS autofill are controlled by the email client/OS and are not guaranteed; the app does not read the user's mailbox.
 
 Local development defaults to console emails. The isolated UI-review settings write emails under ignored `artifacts/emails/` instead of sending them. Neither local test mode proves inbox delivery.
+
+### Sign-in methods
+
+Open **Settings > Security > Sign-in methods**. Password users can confirm their password and select Google to link it explicitly. Google-only users can add a password after confirming the same linked Google identity. Users with both methods can confirm their password to unlink Google. The server prevents unlinking the last method, serializes changes under the user lock and rejects identities belonging to another account. Google verification remains on the server; email matching alone never links accounts. Unlinking Google or adding/changing a password keeps the current session and revokes other sessions. The contact email is the email/password sign-in ID.
 
 ### Account services
 

@@ -2,7 +2,7 @@ export type Kind = 'deposit' | 'withdraw' | 'transfer';
 export type Account = {
   name: string; email: string; number: string; type: string;
   balance: string; status: 'Active' | 'Frozen'; created_at: string;
-  phone: string; address: string; payment_locked: boolean; transfer_alerts: boolean; has_password: boolean;
+  phone: string; address: string; payment_locked: boolean; transfer_alerts: boolean; has_password: boolean; google_linked: boolean;
 };
 export type Recipient = { name: string; number: string };
 export type Entry = {

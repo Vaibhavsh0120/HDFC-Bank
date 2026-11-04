@@ -50,7 +50,7 @@ async (page) => {
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(origin + '/#cards');
-  await page.getByRole('button', { name: 'Create virtual card', exact: true }).click();
+  await page.getByRole('button', { name: /^Create virtual card/ }).click();
   await page.getByLabel('Card network').selectOption('rupay');
   await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
   await page.getByRole('button', { name: 'Confirm card creation' }).click();
@@ -63,7 +63,7 @@ async (page) => {
   assert(/^60\d{2} \d{4} \d{4} \d{4}$/.test(oldNumber), 'Card number is not a natural numeric RuPay format');
   await page.getByRole('button', { name: 'Hide card details' }).click();
   await page.screenshot({ path: 'artifacts/browser/v150-card-390.png', fullPage: true });
-  await page.getByRole('button', { name: 'Freeze card', exact: true }).click();
+  await page.getByRole('button', { name: /^Freeze card/ }).click();
   await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
   await page.getByRole('button', { name: 'Confirm freeze' }).click();
   await page.getByText('Card frozen.', { exact: true }).waitFor();
@@ -72,7 +72,7 @@ async (page) => {
   await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
   await page.getByRole('button', { name: 'Replace card', exact: true }).click();
   await page.getByText('Card replaced. Your previous card number is no longer active.', { exact: true }).waitFor();
-  assert((await card.innerText()).includes('Mastercard') && (await card.innerText()).includes('Frozen'), 'Replacement lost network or freeze state');
+  assert((await card.innerText()).includes('Mastercard') && (await page.locator('.card-state').innerText()).includes('Frozen'), 'Replacement lost network or freeze state');
   await page.getByRole('button', { name: 'Show card details' }).click();
   assert(await page.locator('.virtual-number').innerText() !== oldNumber, 'Replacement reused the old number');
   await page.reload();

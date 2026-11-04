@@ -2,6 +2,15 @@
 
 All money, accounts and virtual cards in this project are fictional. Android 1.1.0 and later use the project release signing key; 1.0.0 used a debug key. iOS IPAs are unsigned and need a compatible signing/container setup.
 
+## 1.6.0 — 2026-11-04
+
+- Use the available desktop width for Profile & settings, with three menu columns on large screens and two on phones.
+- Redesign Cards with a card showcase, clearer status and account details, and dedicated PIN-protected controls for freezing, replacement and network changes.
+- Add sign-in method management: link/unlink Google, add a password to a Google account, or keep both methods. Confirm identity before changes and retain at least one sign-in method.
+- Deliver password and transaction-PIN recovery codes through Brevo's free HTTPS email API, with styled HTML, a centered title and a plain-text alternative.
+- Reduce extra iOS header spacing while respecting the reported safe area. Preserve the working native device-unlock flow.
+- Document each external service, free-plan limits and secret ownership; refresh the environment example and encrypted backup.
+
 ## 1.5.1 — 2026-11-04
 
 - Fix successful Face ID/fingerprint authentication leaving the app locked when the native container still reports an inactive state.

@@ -89,22 +89,19 @@ def google_config(request):
     return Response({"client_id": settings.GOOGLE_CLIENT_ID})
 
 
-@api_view(["POST"])
-@permission_classes([AllowAny])
-@throttle_classes([AccessThrottle])
-def google_login(request):
-    serializer = GoogleCredentialSerializer(data=request.data)
+def verified_google(data):
+    serializer = GoogleCredentialSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     if not settings.GOOGLE_CLIENT_ID:
-        return Response({"detail": "Google sign-in is not configured."}, status=503)
+        return None, Response({"detail": "Google sign-in is not configured."}, status=503)
     try:
         claims = id_token.verify_oauth2_token(
             serializer.validated_data["credential"], GoogleRequest(), settings.GOOGLE_CLIENT_ID,
         )
     except google_exceptions.TransportError:
-        return Response({"detail": "Google sign-in is temporarily unavailable. Try again."}, status=503)
+        return None, Response({"detail": "Google sign-in is temporarily unavailable. Try again."}, status=503)
     except (ValueError, google_exceptions.GoogleAuthError):
-        return Response({"detail": "Google sign-in could not be verified."}, status=401)
+        return None, Response({"detail": "Google sign-in could not be verified."}, status=401)
 
     subject = claims.get("sub")
     email = claims.get("email")
@@ -112,13 +109,23 @@ def google_login(request):
             or claims.get("email_verified") is not True
             or not isinstance(subject, str) or not subject or len(subject) > 255 or not subject.isascii()
             or not isinstance(email, str) or len(email) > 150):
-        return Response({"detail": "Google did not provide a verified account."}, status=401)
+        return None, Response({"detail": "Google did not provide a verified account."}, status=401)
     email = email.lower()
     try:
         validate_email(email)
     except ValidationError:
-        return Response({"detail": "Google did not provide a valid email address."}, status=401)
-    subject_hash = sha256(subject.encode("ascii")).hexdigest()
+        return None, Response({"detail": "Google did not provide a valid email address."}, status=401)
+    return {**claims, "email": email, "subject_hash": sha256(subject.encode("ascii")).hexdigest()}, None
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([AccessThrottle])
+def google_login(request):
+    claims, error = verified_google(request.data)
+    if error is not None:
+        return error
+    subject_hash, email = claims['subject_hash'], claims['email']
     identity = GoogleIdentity.objects.select_related("user").filter(subject_hash=subject_hash).first()
     if identity is None:
         try:
@@ -136,9 +143,15 @@ def google_login(request):
             identity = GoogleIdentity.objects.select_related("user").filter(subject_hash=subject_hash).first()
             if identity is None:
                 return Response({"detail": "An account already uses this email. Sign in with its password."}, status=409)
-    if not identity.user.is_active or not Account.objects.filter(owner=identity.user).exists():
-        return Response({"detail": "This account is unavailable."}, status=403)
-    return session_response(identity.user)
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=identity.user_id)
+        # Unlink/password changes hold this lock too. Never mint a session
+        # from a Google identity that was removed while verification ran.
+        if not user.is_active or not Account.objects.filter(owner=user).exists():
+            return Response({"detail": "This account is unavailable."}, status=403)
+        if not GoogleIdentity.objects.filter(user=user, subject_hash=subject_hash).exists():
+            return Response({"detail": "Google sign-in was unlinked. Sign in with your password."}, status=401)
+        return session_response(user)
 
 
 @api_view(["POST"])

@@ -32,7 +32,16 @@ function loadGoogleScript(): Promise<void> {
   return googleScript;
 }
 
-function GoogleSignIn({ registration, onSession }: { registration: boolean; onSession: (session: Session) => void }) {
+export function GoogleSignIn({ registration = false, onSession, onCredential, confirmation = false }: {
+  registration?: boolean; onSession?: (session: Session) => void;
+  onCredential?: (credential: string) => Promise<void>; confirmation?: boolean;
+}) {
+  const handlers = useRef({ onSession, onCredential });
+  handlers.current = { onSession, onCredential };
+  async function complete(credential: string) {
+    if (handlers.current.onCredential) await handlers.current.onCredential(credential);
+    else handlers.current.onSession?.(await request<Session>('auth/google/', { body: { credential } }));
+  }
   const native = Capacitor.isNativePlatform();
   const element = useRef<HTMLDivElement>(null);
   const [enabled, setEnabled] = useState(false);
@@ -59,7 +68,7 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
           setBusy(true);
           setError('');
           try {
-            onSession(await request<Session>('auth/google/', { body: { credential } }));
+            await complete(credential);
           } catch (error) {
             if (active) setError(message(error));
           } finally {
@@ -78,7 +87,7 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [registration, onSession, attempt, native]);
+  }, [registration, attempt, native]);
 
   async function signInNative() {
     setBusy(true);
@@ -91,7 +100,7 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
       await SocialLogin.initialize({ google: { webClientId: client_id, iOSClientId: iosClientId, iOSServerClientId: client_id, mode: 'online' } });
       const login = await SocialLogin.login({ provider: 'google', options: {} });
       if (login.result.responseType !== 'online' || !login.result.idToken) throw new Error('Google did not return an identity token. Please try again.');
-      onSession(await request<Session>('auth/google/', { body: { credential: login.result.idToken } }));
+      await complete(login.result.idToken);
     } catch (error) {
       setError(message(error));
     } finally {
@@ -100,8 +109,8 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
   }
 
   return <div className="google-sign-in">
-    {(enabled || native) && <div className="auth-divider"><span>or</span></div>}
-    {native ? <button className="btn google-button" type="button" disabled={busy} onClick={signInNative}><img src="/google-g.png" width="20" height="20" alt="" /><span>{busy ? 'Signing in…' : 'Continue with Google'}</span></button> : <div ref={element} />}
+    {!confirmation && (enabled || native) && <div className="auth-divider"><span>or</span></div>}
+    {native ? <button className="btn google-button" type="button" disabled={busy} onClick={signInNative}><img src="/google-g.png" width="20" height="20" alt="" /><span>{busy ? 'Verifying…' : confirmation ? 'Confirm with Google' : 'Continue with Google'}</span></button> : <div ref={element} />}
     {loading && <p role="status" className="muted">Loading Google sign-in…</p>}
     {busy && <p role="status" className="muted">Signing in with Google…</p>}
     {error && <div className="feedback error" role="alert"><p>{error}</p>{!native && <button type="button" onClick={() => setAttempt(value => value + 1)}>Try again</button>}</div>}

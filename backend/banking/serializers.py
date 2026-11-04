@@ -5,7 +5,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import Entry
+from .models import Entry, GoogleIdentity
 
 class RegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
@@ -66,6 +66,7 @@ def account_data(account):
         "payment_locked": account.payment_locked,
         "transfer_alerts": account.transfer_alerts,
         "has_password": account.owner.has_usable_password(),
+        "google_linked": GoogleIdentity.objects.filter(user=account.owner).exists(),
     }
 
 

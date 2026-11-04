@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode, type SubmitEvent } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type SubmitEvent } from 'react';
 import { ArrowRight, CreditCard, Eye, EyeOff, HelpCircle, LockKeyhole, RefreshCw, Settings, ShieldCheck, UserRound, Users } from 'lucide-react';
 import { message, timestamp, type Account } from '../lib/banking';
 import type { AuthedRequest } from './Transactions';
 import { SecurityPin } from './SecurityPin';
 import { DeviceUnlockSettings } from './DeviceUnlock';
+import { GoogleSignIn } from './PublicPages';
 
 function Feedback({ error, success }: { error: string; success?: string }) {
   return <>{error && <p className="feedback error" role="alert">{error}</p>}{success && <p className="positive" role="status">{success}</p>}</>;
@@ -43,7 +44,7 @@ function PersonalDetails({ account, send, update }: SettingsProps) {
       <label>Mobile number <small>Optional · include country code, for example +919876543210</small><input name="phone" type="tel" autoComplete="tel" maxLength={16} pattern="\+?[1-9][0-9]{6,14}" defaultValue={account.phone} /></label>
       <label>Address <small>Optional</small><textarea name="address" autoComplete="street-address" maxLength={300} rows={3} defaultValue={account.address} /></label>
       <label>Current password <small>Required only if you change your email address</small><input name="current_password" type="password" autoComplete="current-password" maxLength={128} /></label>
-      {!account.has_password && <p className="muted">To change your Google account’s contact email, first create a password with <a className="text-link" href="#forgot-password">Forgot password</a>.</p>}
+      {!account.has_password && <p className="muted">To change your contact email, first add a password in <a className="text-link" href="#profile/security">Security → Sign-in methods</a>.</p>}
       <Feedback error={error} /><div className="button-row"><button className="btn primary">{busy ? 'Saving…' : 'Save profile'}</button><button className="btn secondary" type="button" onClick={() => { setEditing(false); setError(''); }}>Cancel</button></div>
     </fieldset></form> : <><dl className="details"><div><dt>Name</dt><dd>{account.name}</dd></div><div><dt>Email</dt><dd>{account.email}</dd></div><div><dt>Mobile</dt><dd>{account.phone || 'Not added'}</dd></div><div><dt>Address</dt><dd>{account.address || 'Not added'}</dd></div><div><dt>Account</dt><dd>{account.number}</dd></div><div><dt>Status</dt><dd>{account.status}</dd></div><div><dt>Opened</dt><dd>{timestamp.format(new Date(account.created_at))} IST</dd></div></dl><Feedback error="" success={success} /><button className="btn secondary" onClick={() => { setEditing(true); setSuccess(''); }}>Edit personal details</button></>}
   </section>;
@@ -63,8 +64,48 @@ function PasswordSettings({ account, send }: SettingsProps) {
     <label>Current password<input name="current_password" type="password" autoComplete="current-password" maxLength={128} required /></label>
     <label>New password<input name="new_password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required /><small>At least 8 characters. Avoid common passwords and your personal details.</small></label>
     <label>Confirm new password<input name="confirmation" type="password" autoComplete="new-password" maxLength={128} required /></label><Feedback error={error} success={success} /><button className="btn primary">{busy ? 'Changing…' : 'Change password'}</button>
-  </fieldset></form> : <p>You sign in with Google. Use <a className="text-link" href="#forgot-password">Forgot password</a> to create a password for email sign-in.</p>}
+  </fieldset></form> : <p className="muted">You currently use Google. Add an email password in Sign-in methods to use either option.</p>}
   <a className="text-link" href="#forgot-password">Forgot your password?</a></section>;
+}
+
+function SignInMethods({ account, send, update }: SettingsProps) {
+  const [mode, setMode] = useState<'link' | 'unlink' | 'password'>();
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const form = useRef<HTMLFormElement>(null);
+  function choose(next: typeof mode) { setMode(next); setReady(false); setError(''); setSuccess(''); }
+  async function finish(credential?: string) {
+    if (!form.current?.reportValidity()) return;
+    const data = Object.fromEntries(new FormData(form.current));
+    if (mode === 'password' && data.new_password !== data.confirmation) throw new Error('New passwords do not match.');
+    const path = mode === 'password' ? 'auth/password/add/' : mode === 'link' ? 'auth/google/link/' : 'auth/google/unlink/';
+    const result = await send<Account>(path, { ...data, ...(credential ? { credential } : {}) });
+    update(result); setMode(undefined); setReady(false);
+    setSuccess(mode === 'password' ? 'Password added. You can now sign in with Google or email and password.' : mode === 'link' ? 'Google linked. Both sign-in methods are available.' : 'Google unlinked. Use your email and password to sign in. Other sessions were signed out.');
+  }
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault(); setError('');
+    const data = new FormData(event.currentTarget);
+    if (mode === 'password' && data.get('new_password') !== data.get('confirmation')) { setError('New passwords do not match.'); return; }
+    if (mode !== 'unlink') { setReady(true); return; }
+    setBusy(true);
+    try { await finish(); } catch (error) { setError(message(error)); } finally { setBusy(false); }
+  }
+  return <section className="panel settings-panel form-stack sign-in-methods">
+    <div><p className="eyebrow">ACCOUNT ACCESS</p><h2>Sign-in methods</h2><p className="muted">Choose how you sign in. Keep at least one method enabled.</p></div>
+    <div className="signin-method"><span className="icon-box"><LockKeyhole size={20} /></span><div><strong>Email & password</strong><small>{account.has_password ? account.email : 'Add a password as another way to sign in'}</small></div><span className={'method-status ' + (account.has_password ? 'enabled' : '')}>{account.has_password ? 'Enabled' : 'Not set'}</span></div>
+    <div className="signin-method"><span className="icon-box"><img src="/google-g.png" width="20" height="20" alt="" /></span><div><strong>Google</strong><small>{account.google_linked ? 'Linked to this account' : 'Link your Google account for quicker sign-in'}</small></div><span className={'method-status ' + (account.google_linked ? 'enabled' : '')}>{account.google_linked ? 'Linked' : 'Not linked'}</span></div>
+    {!mode ? <div className="button-row">{!account.has_password && <button className="btn primary" onClick={() => choose('password')}>Add email password</button>}{!account.google_linked ? <button className="btn secondary" onClick={() => choose('link')}>Link Google account</button> : <button className="btn secondary" disabled={!account.has_password} onClick={() => choose('unlink')}>Unlink Google</button>}{account.google_linked && !account.has_password && <small className="muted">Add a password before unlinking Google.</small>}</div> : <form ref={form} className="form-stack method-form" onSubmit={submit}>
+      <h3>{mode === 'password' ? 'Add an email password' : mode === 'link' ? 'Link Google account' : 'Unlink Google account'}</h3>
+      <p className="muted">{mode === 'password' ? 'Create a password, then confirm your linked Google account. Your current email will be your sign-in ID.' : mode === 'link' ? 'Confirm your password, then choose the Google account to link.' : 'Confirm your password. Your current login stays active; other sessions will be signed out.'}</p>
+      {mode === 'password' ? <><label>New password<input name="new_password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required readOnly={ready} /><small>At least 8 characters. Avoid common passwords and personal details.</small></label><label>Confirm new password<input name="confirmation" type="password" autoComplete="new-password" maxLength={128} required readOnly={ready} /></label></> : <label>Current password<input name="current_password" type="password" autoComplete="current-password" maxLength={128} required readOnly={ready} /></label>}
+      {ready ? <><GoogleSignIn confirmation onCredential={finish} /><button className="text-link" type="button" onClick={() => setReady(false)}>Edit entered details</button></> : <button className="btn primary" disabled={busy}>{busy ? 'Updating…' : mode === 'unlink' ? 'Confirm unlink Google' : 'Continue'}</button>}
+      <button className="btn secondary" type="button" disabled={busy} onClick={() => choose(undefined)}>Cancel</button>
+    </form>}
+    <Feedback error={error} success={success} />
+  </section>;
 }
 
 export function PinRecovery({ send, onSaved }: { send: AuthedRequest; onSaved: () => void }) {
@@ -165,20 +206,20 @@ function Help({ send, account }: SettingsProps) {
 }
 
 type SettingsProps = { account: Account; send: AuthedRequest; update: (account: Account) => void };
-const sections = [{ id: 'details', title: 'Personal details', description: 'Name, email, phone and address', icon: UserRound }, { id: 'security', title: 'Security', description: 'Transaction PIN and password', icon: ShieldCheck }, { id: 'nominee', title: 'Nominee', description: 'Nomination and guardian details', icon: Users }, { id: 'recipients', title: 'Saved recipients', description: 'Manage accounts you pay', icon: Users }, { id: 'preferences', title: 'Preferences', description: 'Payment lock and transfer alerts', icon: Settings }, { id: 'help', title: 'Help & support', description: 'Report an issue and follow replies', icon: HelpCircle }] as const;
+const sections = [{ id: 'details', title: 'Personal details', description: 'Name, email, phone and address', icon: UserRound }, { id: 'security', title: 'Security', description: 'Sign-in methods, password and PIN', icon: ShieldCheck }, { id: 'nominee', title: 'Nominee', description: 'Nomination and guardian details', icon: Users }, { id: 'recipients', title: 'Saved recipients', description: 'Manage accounts you pay', icon: Users }, { id: 'preferences', title: 'Preferences', description: 'Payment lock and transfer alerts', icon: Settings }, { id: 'help', title: 'Help & support', description: 'Report an issue and follow replies', icon: HelpCircle }] as const;
 export function CustomerSettings(props: SettingsProps & { active?: string }) {
   const active = sections.find(section => section.id === props.active);
   const [pinVersion, setPinVersion] = useState(0);
   let panel: ReactNode;
   switch (active?.id) {
     case 'details': panel = <PersonalDetails {...props} />; break;
-    case 'security': panel = <><DeviceUnlockSettings /><SecurityPin key={pinVersion} send={props.send} /><PinRecovery send={props.send} onSaved={() => setPinVersion(value => value + 1)} /><PasswordSettings {...props} /></>; break;
+    case 'security': panel = <><SignInMethods {...props} /><PasswordSettings {...props} /><DeviceUnlockSettings /><SecurityPin key={pinVersion} send={props.send} /><PinRecovery send={props.send} onSaved={() => setPinVersion(value => value + 1)} /></>; break;
     case 'nominee': panel = <Nomination {...props} />; break;
     case 'recipients': panel = <SavedRecipients {...props} />; break;
     case 'preferences': panel = <Preferences {...props} />; break;
     case 'help': panel = <Help {...props} />; break;
   }
-  return <><div className="page-heading"><p className="eyebrow">YOUR ACCOUNT</p><h1>{active?.title || 'Profile & settings'}</h1><p>{active ? active.description : 'Manage your details, security and account services.'}</p></div>{active ? <><a className="back-link" href="#profile">Back to Profile & settings</a><div className="settings-content">{panel}</div></> : <><section className="panel settings-panel profile-person"><span className="avatar big">{props.account.name.slice(0, 1).toUpperCase()}</span><div><h2>{props.account.name}</h2><p>{props.account.email}</p></div></section><div className="settings-menu">{sections.map(({ id, title, description, icon: Icon }) => <a className="panel settings-link" href={'#profile/' + id} key={id}><span className="icon-box"><Icon size={22} /></span><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={18} /></a>)}</div></>}</>;
+  return <><div className="page-heading"><p className="eyebrow">YOUR ACCOUNT</p><h1>{active?.title || 'Profile & settings'}</h1><p>{active ? active.description : 'Manage your details, security and account services.'}</p></div>{active ? <><a className="back-link" href="#profile">Back to Profile & settings</a><div className={"settings-content" + (active.id === "security" ? " security-settings" : "")}>{panel}</div></> : <><section className="panel settings-panel profile-person"><span className="avatar big">{props.account.name.slice(0, 1).toUpperCase()}</span><div><h2>{props.account.name}</h2><p>{props.account.email}</p></div></section><div className="settings-menu">{sections.map(({ id, title, description, icon: Icon }) => <a className="panel settings-link" href={'#profile/' + id} key={id}><span className="icon-box"><Icon size={22} /></span><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={18} /></a>)}</div></>}</>;
 }
 
 type Network = 'visa' | 'rupay' | 'mastercard';
@@ -205,25 +246,25 @@ export function VirtualCardPage({ send, account }: { send: AuthedRequest; accoun
   function manage(action: 'create' | 'freeze' | 'replace') {
     setChanging(action); setNetwork(card?.network || 'visa'); setRevealed(false); setError(''); setSuccess('');
   }
-  return <><div className="page-heading"><p className="eyebrow">CARDS</p><h1>Virtual debit card</h1><p>Manage your project’s virtual card.</p></div><div className="card-page">
+  return <><div className="page-heading"><p className="eyebrow">CARDS</p><h1>Virtual debit card</h1><p>Your card, your network, your controls.</p></div><div className="card-page">
     {!remote.data ? <section className="panel settings-panel"><Loading error={remote.error} retry={remote.retry} /></section> : <>
-      {card ? <section className={'virtual-card ' + (card.frozen ? 'is-frozen' : '')} aria-label="Demo virtual debit card">
-        <div className="button-row"><strong>HDFC Bank</strong><CreditCard size={26} /></div>
-        <div className="virtual-status"><span>{card.frozen ? 'Frozen' : account.status !== 'Active' ? 'Account frozen' : 'Active'} · Demo card</span><strong className={'card-network ' + card.network}>{networks[card.network]}</strong></div>
+      {card ? <div className="card-showcase panel"><div className="card-showcase-heading"><div><p className="eyebrow">YOUR VIRTUAL CARD</p><h2>{networks[card.network]} debit</h2></div><span className={'card-state ' + (card.frozen ? 'frozen' : '')}>{card.frozen ? 'Frozen' : account.status !== 'Active' ? 'Account frozen' : 'Active'}</span></div><section className={'virtual-card ' + (card.frozen ? 'is-frozen' : '')} aria-label="Demo virtual debit card">
+        <div className="button-row"><strong>HDFC Bank</strong><span className="card-type">DEBIT</span></div>
+        <div className="virtual-status"><span className="card-chip" aria-hidden="true"><i /><i /><i /></span><strong className={'card-network ' + card.network}>{networks[card.network]}</strong></div>
         <div className="virtual-number-row"><strong className="virtual-number">{revealed ? card.number.match(/.{1,4}/g)?.join(' ') : '•••• •••• •••• ' + card.last_four}</strong>
           <button className="card-button" aria-label={revealed ? 'Hide card details' : 'Show card details'} aria-pressed={revealed} onClick={() => setRevealed(!revealed)}>{revealed ? <EyeOff size={19} /> : <Eye size={19} />}</button></div>
         <div className="virtual-bottom"><div><small>Cardholder</small><strong>{account.name}</strong></div><div><small>Valid until</small><strong>{card.expires}</strong></div><div><small>CVV</small><strong>{revealed ? card.security_code : '•••'}</strong></div></div>
-      </section> : <section className="panel settings-panel form-stack"><span className="icon-box"><CreditCard size={24} /></span><h2>No virtual card yet</h2><p>Create a demo card linked to your savings account.</p></section>}
-      <section className="panel settings-panel form-stack"><h2>{changing === 'replace' ? 'Replace virtual card' : card ? 'Manage card' : 'Create virtual card'}</h2>
-        <p className="muted">This demo card cannot make purchases or ATM withdrawals. Freezing it does not lock account transfers.</p>
+      </section><div className="card-linked-account"><span className="icon-box"><ShieldCheck size={20} /></span><div><strong>Linked to your savings account</strong><small>Account ending {account.number.slice(-4)} · Details hidden until you reveal them</small></div></div><p className="card-footnote">Virtual demo card. Purchases and ATM withdrawals are not supported.</p></div> : <section className="panel settings-panel form-stack"><span className="icon-box"><CreditCard size={24} /></span><h2>No virtual card yet</h2><p>Create a demo card linked to your savings account.</p></section>}
+      <section className="panel settings-panel form-stack card-controls"><h2>{changing === 'replace' ? 'Replace virtual card' : card ? 'Card controls' : 'Create virtual card'}</h2>
+        <p className="muted">Card changes are protected by your transaction PIN. Freezing your card leaves account transfers available.</p>
         {account.status !== 'Active' ? <p className="feedback error">Your account is frozen. Contact support for card changes.</p> : changing ? <form className="form-stack" onSubmit={save}><fieldset disabled={busy} className="form-stack">
           {changing !== 'freeze' && <label>Card network<select name="network" value={network} onChange={event => setNetwork(event.target.value as Network)}>{Object.entries(networks).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
           {changing === 'replace' && <p className="feedback">Your old number and CVV will be replaced. The new card will keep your current freeze setting.</p>}
           <label>Transaction PIN<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{4,6}" autoComplete="off" maxLength={6} required /></label>
           <div className="button-row"><button className="btn primary">{busy ? 'Saving…' : changing === 'create' ? 'Confirm card creation' : changing === 'replace' ? 'Replace card' : card?.frozen ? 'Confirm unfreeze' : 'Confirm freeze'}</button><button className="btn secondary" type="button" onClick={() => { setChanging(undefined); setError(''); }}>Cancel</button></div>
-        </fieldset></form> : <div className="form-stack"><button className="btn secondary" onClick={() => manage(card ? 'freeze' : 'create')}><LockKeyhole size={17} />{!card ? 'Create virtual card' : card.frozen ? 'Unfreeze card' : 'Freeze card'}</button>
-          {card && <button className="btn secondary" onClick={() => manage('replace')}><RefreshCw size={17} />Replace card or change network</button>}</div>}
-        <Feedback error={error} success={success} /><a className="text-link" href="#profile/security">Manage transaction PIN</a><a className="text-link" href="#profile/help">Report a card problem</a>
+        </fieldset></form> : <div className="card-actions"><button className="card-action" onClick={() => manage(card ? 'freeze' : 'create')}><span className="icon-box"><LockKeyhole size={20} /></span><span><strong>{!card ? 'Create virtual card' : card.frozen ? 'Unfreeze card' : 'Freeze card'}</strong><small>{!card ? 'Choose your preferred network' : card.frozen ? 'Make your card active again' : 'Temporarily pause this card'}</small></span><ArrowRight size={18} /></button>
+          {card && <button className="card-action" onClick={() => manage('replace')}><span className="icon-box"><RefreshCw size={20} /></span><span><strong>Replace card or change network</strong><small>Get new details with VISA, RuPay or Mastercard</small></span><ArrowRight size={18} /></button>}</div>}
+        <Feedback error={error} success={success} /><div className="card-support-links"><a className="text-link" href="#profile/security"><ShieldCheck size={17} />Manage transaction PIN<ArrowRight size={16} /></a><a className="text-link" href="#profile/help"><HelpCircle size={17} />Report a card problem<ArrowRight size={16} /></a></div>
       </section>
     </>}
   </div></>;

@@ -2,6 +2,14 @@
 
 This remains a student banking simulation using internal accounts and fictional funds.
 
+## Version 1.6.0 follow-up
+
+- Profile/settings fills the desktop content area; phone menus retain two columns. Card controls and sign-in method management were checked at 320–1728px, including standard debit-card proportions.
+- Explicit Google linking/unlinking and adding a password to a Google-only account retain at least one sign-in method. Backend identity verification and form behavior have separate test coverage.
+- Both password and transaction-PIN recovery deliver codes to the registered email using Brevo HTTPS. A styled delivery preview reached the maintainer's inbox. Production recovery verification is tracked in the release review.
+- The user confirmed Face ID now succeeds on their iPhone. iOS/Android simulated lifecycle regression checks still pass; physical Android confirmation is outstanding.
+- See [services](SERVICES.md) for hosting, database, email, authentication and release responsibilities and free-plan boundaries.
+
 The [release review](RELEASE-REVIEW.md) contains the final security findings and current test results; [Setup and operations](SETUP.md) contains deployment and local MySQL instructions.
 
 ## Version 1.5.1 follow-up

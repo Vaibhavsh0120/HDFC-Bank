@@ -55,6 +55,8 @@ flowchart LR
 | Mobile | Capacitor 7; shared interface and API |
 | Hosting | Render frontend/API services; Aiven MySQL |
 
+See [Services and their purpose](docs/SERVICES.md) for the free hosting/database plans, Google sign-in, Brevo recovery emails, GitHub releases, LiveContainer updates and environment ownership.
+
 ## How a transfer works
 
 ```mermaid
@@ -148,7 +150,7 @@ render.yaml          Frontend and API hosting configuration
 - Fictional funds stay inside this project's database. There is no external UPI, real-money payment network, merchant card processing or regulated KYC.
 - Email/password registration and contact edits do not verify email ownership. Google identities are not automatically linked to existing password accounts.
 - Hosted recovery needs a configured sender. Local email tests do not prove inbox delivery.
-- Camera scanning, native file sharing, Google sign-in and device authentication need physical-device validation. iOS packages are unsigned and require a compatible signing or LiveContainer setup. LiveContainer keychain/Face ID behavior depends on its host and device configuration.
+- The maintainer confirmed working Face ID on their iPhone after 1.5.1. Android device authentication, camera scanning, native file sharing and Google sign-in still need target-device checks. iOS packages are unsigned and require a compatible signing or LiveContainer setup. LiveContainer behavior depends on its host and device configuration.
 - The team must provide its actual contributions and match the trainer's rubric. The project has one Django domain app and no custom banking many-to-many model.
 
 ## Team

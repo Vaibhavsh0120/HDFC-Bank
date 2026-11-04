@@ -321,3 +321,33 @@ class CustomerFlowTests(APITestCase):
         code = re.search(r'code is ([0-9]{6})', kwargs['json']['text']).group(1)
         self.assertNotIn(code, str(result.data))
         self.assertTrue(check_password(code, EmailChallenge.objects.get(user=self.user).code_hash))
+
+    @override_settings(DEBUG=False, BREVO_API_KEY='test-provider-key', DEFAULT_FROM_EMAIL='Bank Recovery <sender@example.test>', EMAIL_BACKEND='banking.email_backend.BrevoEmailBackend')
+    @patch('banking.email_backend.requests.post')
+    def test_brevo_delivers_password_and_pin_codes_over_https(self, post):
+        self.user.first_name = '<img src=x>'
+        self.user.save(update_fields=['first_name'])
+        post.return_value.json.return_value = {'messageId': '<test-message>'}
+        for path, purpose in [('auth/password/reset/request/', 'password_reset'), ('security/pin/reset/request/', 'pin_reset')]:
+            result = self.client.post('/api/' + path, {'email': self.user.email})
+            self.assertEqual(result.status_code, 200, result.data)
+            args, kwargs = post.call_args
+            self.assertEqual(args, ('https://api.brevo.com/v3/smtp/email',))
+            self.assertEqual(kwargs['headers']['api-key'], 'test-provider-key')
+            self.assertEqual(kwargs['json']['sender'], {'name': 'Bank Recovery', 'email': 'sender@example.test'})
+            self.assertEqual(kwargs['json']['to'], [{'email': self.user.email}])
+            code = re.search(r'code is ([0-9]{6})', kwargs['json']['textContent']).group(1)
+            self.assertNotIn(code, str(result.data))
+            self.assertIn(code, kwargs['json']['htmlContent'])
+            self.assertIn('&lt;img src=x&gt;', kwargs['json']['htmlContent'])
+            self.assertNotIn('<img src=x>', kwargs['json']['htmlContent'])
+            self.assertTrue(check_password(code, EmailChallenge.objects.get(user=self.user, purpose=purpose).code_hash))
+
+    @override_settings(DEBUG=False, BREVO_API_KEY='test-provider-key', EMAIL_BACKEND='banking.email_backend.BrevoEmailBackend')
+    @patch('banking.email_backend.requests.post')
+    def test_brevo_rejection_leaves_no_usable_recovery_code(self, post):
+        post.return_value.json.return_value = {'message': 'Daily quota reached'}
+        with self.assertLogs('banking.customer', level='ERROR'):
+            result = self.client.post('/api/security/pin/reset/request/')
+        self.assertEqual(result.status_code, 503)
+        self.assertFalse(EmailChallenge.objects.filter(user=self.user).exists())

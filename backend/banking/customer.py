@@ -11,18 +11,19 @@ from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from django.template.loader import render_to_string
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from .models import Account, AccessSession, Beneficiary, EmailChallenge, Nominee, SupportRequest, VirtualCard
+from .models import Account, AccessSession, Beneficiary, EmailChallenge, GoogleIdentity, Nominee, SupportRequest, VirtualCard
 from .cards import card_details
 from .pin import verify_pin
 from .serializers import account_data
 from .services import BankingError, account_id, recipient_for
-from .views import own_account
+from .views import own_account, verified_google
 
 
 class SecurityThrottle(ScopedRateThrottle):
@@ -112,6 +113,8 @@ def profile(request):
 def email_ready():
     if settings.DEBUG:
         return True
+    if settings.EMAIL_BACKEND == 'banking.email_backend.BrevoEmailBackend':
+        return bool(settings.BREVO_API_KEY)
     if settings.EMAIL_BACKEND == 'banking.email_backend.ResendEmailBackend':
         return bool(settings.RESEND_API_KEY)
     return settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend' and bool(settings.EMAIL_HOST)
@@ -133,11 +136,15 @@ def send_code(user, purpose):
         )
         try:
             sent = send_mail(
-                'Reset your ' + ('transaction PIN' if purpose == 'pin_reset' else 'password'),
-                f'Your HDFC Bank student project code is {code}.\n\n'
+                f'{code} is your ' + ('transaction PIN' if purpose == 'pin_reset' else 'password') + ' reset verification code - HDFC Bank',
+                f'Your HDFC Bank student project verification code is {code}.\n\n'
                 'It expires in 10 minutes. Never share it. If you did not request this, ignore this email.\n'
                 'Enter this code in the app or website where you requested the reset.',
                 settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False,
+                html_message=render_to_string('banking/recovery.html', {
+                    'name': user.first_name or 'there', 'code': code,
+                    'reset_label': 'transaction PIN' if purpose == 'pin_reset' else 'password',
+                }),
             )
             if sent != 1:
                 raise RuntimeError('Email backend did not accept the recovery message.')
@@ -233,6 +240,79 @@ def password_change(request):
         AccessSession.objects.filter(user=user).exclude(pk=request.auth.pk).delete()
         EmailChallenge.objects.filter(user=user, purpose='password_reset').delete()
     return Response({'detail': 'Password changed.'})
+
+
+def fresh_google(data):
+    claims, error = verified_google(data)
+    if error is not None:
+        # A rejected Google proof must not expire the valid banking session.
+        if error.status_code == 401:
+            error.status_code = 400
+        return None, error
+    issued = claims.get('iat')
+    now = timezone.now().timestamp()
+    if not isinstance(issued, (int, float)) or not now - 300 <= issued <= now + 30:
+        return None, Response({'detail': 'Confirm your Google account again to make this change.'}, status=400)
+    return claims, None
+
+
+@api_view(['POST'])
+@throttle_classes([SecurityThrottle])
+def google_link(request):
+    claims, error = fresh_google(request.data)
+    if error is not None:
+        return error
+    password = serializers.CharField(max_length=128, trim_whitespace=False, write_only=True).run_validation(request.data.get('current_password'))
+    try:
+        with transaction.atomic():
+            user = User.objects.select_for_update().get(pk=request.user.pk)
+            if not user.check_password(password):
+                return Response({'detail': 'Current password is incorrect.'}, status=400)
+            if GoogleIdentity.objects.filter(user=user).exists():
+                return Response({'detail': 'Google is already linked. Unlink it before choosing a different account.'}, status=409)
+            if GoogleIdentity.objects.filter(subject_hash=claims['subject_hash']).exists():
+                return Response({'detail': 'This Google account is already linked to another account.'}, status=409)
+            GoogleIdentity.objects.create(user=user, subject_hash=claims['subject_hash'])
+            return Response(account_data(user.account))
+    except IntegrityError:
+        return Response({'detail': 'This Google account is already linked. Reload and try again.'}, status=409)
+
+
+@api_view(['POST'])
+@throttle_classes([SecurityThrottle])
+def google_unlink(request):
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=request.user.pk)
+        if not user.has_usable_password():
+            return Response({'detail': 'Add an email sign-in password before unlinking Google.'}, status=409)
+        password = serializers.CharField(max_length=128, trim_whitespace=False, write_only=True).run_validation(request.data.get('current_password'))
+        if not user.check_password(password):
+            return Response({'detail': 'Current password is incorrect.'}, status=400)
+        GoogleIdentity.objects.filter(user=user).delete()
+        AccessSession.objects.filter(user=user).exclude(pk=request.auth.pk).delete()
+        return Response(account_data(user.account))
+
+
+@api_view(['POST'])
+@throttle_classes([SecurityThrottle])
+def password_add(request):
+    claims, error = fresh_google(request.data)
+    if error is not None:
+        return error
+    password = serializers.CharField(max_length=128, trim_whitespace=False, write_only=True).run_validation(request.data.get('new_password'))
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=request.user.pk)
+        if user.has_usable_password():
+            return Response({'detail': 'A password is already set. Use Change password.'}, status=409)
+        if not GoogleIdentity.objects.filter(user=user, subject_hash=claims['subject_hash']).exists():
+            return Response({'detail': 'Confirm the Google account linked to this banking account.'}, status=403)
+        if error := password_error(password, user):
+            return error
+        user.set_password(password)
+        user.save(update_fields=['password'])
+        AccessSession.objects.filter(user=user).exclude(pk=request.auth.pk).delete()
+        EmailChallenge.objects.filter(user=user, purpose='password_reset').delete()
+        return Response(account_data(user.account))
 
 
 @api_view(['POST'])

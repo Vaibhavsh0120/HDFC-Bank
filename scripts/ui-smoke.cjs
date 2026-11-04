@@ -132,11 +132,11 @@ async (page) => {
   checked.push('Payment lock and unlock');
 
   await go('cards', 'Virtual debit card');
-  await page.getByRole('button', { name: 'Create virtual card', exact: true }).click();
+  await page.getByRole('button', { name: /^Create virtual card/ }).click();
   await page.getByLabel('Transaction PIN').fill('1234');
   await page.getByRole('button', { name: 'Confirm card creation' }).click();
   await page.getByText('Virtual card created.', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Freeze card', exact: true }).click();
+  await page.getByRole('button', { name: /^Freeze card/ }).click();
   await page.getByLabel('Transaction PIN').fill('1234');
   await page.getByRole('button', { name: 'Confirm freeze' }).click();
   await page.getByText('Card frozen.', { exact: true }).waitFor();
