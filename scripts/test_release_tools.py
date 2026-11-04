@@ -18,6 +18,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_source_uses_newest_actual_ipa_and_semver_sorting(self):
         source = build_source([release('1.4.2'), release('1.10.0'), release('1.5.0'), release('2.0.0', ios=False), release('3.0.0', draft=True), release('4.0.0', prerelease=True)])
+        self.assertTrue(source['sourceURL'].endswith('/main/apps.json'))
         app = source['apps'][0]
         self.assertEqual([v['version'] for v in app['versions']], ['1.10.0', '1.5.0', '1.4.2'])
         self.assertEqual(app['version'], '1.10.0')

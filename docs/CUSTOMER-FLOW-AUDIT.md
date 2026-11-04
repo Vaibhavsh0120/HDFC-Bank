@@ -12,6 +12,7 @@ The [release review](RELEASE-REVIEW.md) contains the final security findings and
 - Native integration was tested through the real plugin JavaScript with a simulated Capacitor bridge: legacy-session migration, the first-login offer, remembered decline, enable/disable confirmation, cold-open lock, background lock, cancellation, retry, a missing screen lock and a cancelled enable. This caught and fixed a native storage initialization hang caused by resolving a Promise with a Capacitor proxy. These checks do not simulate the phone's actual biometric hardware.
 - The existing end-to-end account/payment/recovery/settings smoke check passed after updating its balance-visibility and card-creation assertions. The isolated Django suite now has 56 tests: 54 passed and the 2 MySQL-only concurrency checks skipped on SQLite. Seven device-unlock policy tests and three release/source tests passed.
 - Android debug compilation succeeded with the authentication, secure-storage and app-lifecycle plugins. Physical-device/LiveContainer authentication and iOS runtime behavior still need target-device confirmation; hosted build results are separate from this local evidence.
+- Hosted follow-up: [the manual release run](https://github.com/Vaibhavsh0120/HDFC-Bank/actions/runs/41823387366) passed the MySQL/frontend gate, built both platforms, published [1.5.0](https://github.com/Vaibhavsh0120/HDFC-Bank/releases/tag/v1.5.0) and refreshed the source automatically. The catalog was then moved onto `main` to honor the user's single-branch request. YashikaPachori's existing write access was verified; published commit authors were preserved.
 
 The original review below records the pre-1.5.0 baseline.
 
@@ -59,6 +60,8 @@ Run the API with `--settings=config.demo_settings` on port **8011**. Start Astro
 ```powershell
 npx --package @playwright/cli playwright-cli -s=bank-audit open http://127.0.0.1:4322/
 npx --package @playwright/cli playwright-cli -s=bank-audit run-code --filename scripts/ui-smoke.cjs
+npx --package @playwright/cli playwright-cli -s=bank-audit run-code --filename scripts/v150-ui-smoke.cjs
+npx --package @playwright/cli playwright-cli -s=bank-audit run-code --filename scripts/native-unlock-smoke.cjs
 npx --package @playwright/cli playwright-cli -s=bank-audit run-code --filename scripts/ui-layout.cjs
 ```
 

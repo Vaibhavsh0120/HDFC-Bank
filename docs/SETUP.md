@@ -132,9 +132,9 @@ The iOS IPA is unsigned and needs a compatible signing or LiveContainer setup. A
 
 ### LiveContainer source updates
 
-Add [this stable source URL](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/livecontainer/apps.json) in LiveContainer's source manager. The catalog includes only published, non-prerelease versions with a non-empty iOS IPA asset. Versions are sorted numerically; Android-only releases do not replace the latest iOS entry.
+Add [this stable source URL](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json) in LiveContainer's source manager. The catalog includes only published, non-prerelease versions with a non-empty iOS IPA asset. Versions are sorted numerically; Android-only releases do not replace the latest iOS entry.
 
-After a successful manual iOS/combined publication, the mobile workflow calls `livecontainer-source.yml` explicitly. This works even though releases created using `GITHUB_TOKEN` do not trigger another release-event workflow. The source workflow also supports manual refreshes and externally published/edited/deleted release events. It writes only `apps.json` on the dedicated `livecontainer` branch using `contents: write`; it does not alter `main` or deploy the website. Concurrent source updates are serialized.
+After a successful manual iOS/combined publication, the mobile workflow calls `livecontainer-source.yml` explicitly. This works even though releases created using `GITHUB_TOKEN` do not trigger another release-event workflow. The source workflow also supports manual refreshes. It writes only `apps.json` on `main` using `contents: write`; this small automated commit keeps the repository on a single branch. The workflow explicitly checks out `main` to use the current source generator. Concurrent source updates are serialized. After editing or deleting an existing release outside the mobile workflow, run **Update LiveContainer source** to refresh its catalog.
 
 For maintainers, `python scripts/release_tools.py source --output artifacts/apps.json` previews the catalog. Add `--publish` with `GH_TOKEN` to update it. `backfill --publish` updates existing GitHub release bodies from CHANGELOG; `--git-credentials` can use the configured local Git credential helper without writing credentials to disk. Catalog refreshes do not silently install updates in a user's container.
 

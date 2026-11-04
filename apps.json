@@ -1,0 +1,115 @@
+{
+  "name": "HDFC Bank · Student Project",
+  "identifier": "dev.vaibhavsh0120.hdfcbank.source",
+  "sourceURL": "https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json",
+  "website": "https://github.com/Vaibhavsh0120/HDFC-Bank",
+  "subtitle": "Fictional banking for learning and demonstration",
+  "description": "The official project source for HDFC Bank. Fictional funds; independent of the real bank. Unsigned iOS packages for a compatible LiveContainer setup.",
+  "tintColor": "#132A57",
+  "iconURL": "https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/frontend/public/apple-touch-icon.png",
+  "apps": [
+    {
+      "name": "HDFC Bank",
+      "bundleIdentifier": "dev.vaibhavsh0120.hdfcbank",
+      "developerName": "Vaibhav Sharma, Aashi Agarwal & Yashika Pachori",
+      "subtitle": "A student banking simulator",
+      "localizedDescription": "Manage fictional savings, internal transfers, QR payments and demo virtual cards. This is an independent student project, not a real bank.",
+      "iconURL": "https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/frontend/public/apple-touch-icon.png",
+      "tintColor": "#132A57",
+      "versions": [
+        {
+          "version": "1.5.0",
+          "buildVersion": "1005000",
+          "date": "2026-11-04T11:50:01Z",
+          "localizedDescription": "- Open saved sessions without briefly showing the public landing page. Show a neutral startup screen and dashboard skeleton while loading.\n- Add an optional app-only device lock using Face ID, fingerprint or the phone's screen lock. Offer setup after the first app login and enable/disable it in Security settings. Store native sessions in local secure storage; lock protected accounts on backgrounding and at the next launch. Account sign-in remains the recovery path.\n- Hide the dashboard balance and account number by default; reveal both with one eye button.\n- Hide virtual-card numbers and CVVs by default, with a separate eye button for card details.\n- Choose VISA, RuPay or Mastercard for randomly generated, persistent numeric demo cards. Freeze/unfreeze a card or replace its details and network with transaction-PIN confirmation.\n- Keep settings in a two-column tile grid on mobile.\n- Add a branded 404 screen for missing pages and unknown in-app routes.\n- Remove the repeated footer notice throughout the website and app.\n- Add an AltStore-compatible LiveContainer source with published iOS version history. Manual iOS releases refresh the source automatically.\n- Add version-specific notes for previous releases and reuse these notes in the manual release workflow.\n\nDevice unlock requires a phone screen lock and a native app build. It does not change website sign-in or replace the existing transaction PIN. Device hardware and LiveContainer behavior require testing on the target phone.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.5.0/HDFC-Bank-1.5.0-ios-unsigned.ipa",
+          "size": 5723923,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "1.4.2",
+          "buildVersion": "1004002",
+          "date": "2026-11-04T08:58:46Z",
+          "localizedDescription": "- Launch the native camera directly from the Scan QR button on Android and iOS.\n- Keep browser camera scanning, QR-image upload and manual account-number payment available as alternatives.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.4.2/HDFC-Bank-1.4.2-ios-unsigned.ipa",
+          "size": 5576597,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "1.4.1",
+          "buildVersion": "1004001",
+          "date": "2026-11-04T08:43:19Z",
+          "localizedDescription": "- Align the QR-payment card header, scan action and image-upload control.\n- Improve spacing and control presentation in the QR-payment interface.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.4.1/HDFC-Bank-1.4.1-ios-unsigned.ipa",
+          "size": 5576608,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "1.4.0",
+          "buildVersion": "1004000",
+          "date": "2026-11-04T08:34:06Z",
+          "localizedDescription": "- Harden outgoing-payment locking and PIN validation against concurrent changes.\n- Revoke other saved sessions after a password change and reject stale credentials after password recovery.\n- Allow removal of legacy saved recipients, including frozen recipients.\n- Update REST Framework to resolve the reviewed dependency vulnerability.\n- Require MySQL safety tests, schema checks, dependency audits and the web build before mobile packaging.\n- Fix long-name overflow and sign-in accessibility, and integrate the payment-method and incoming-alert changes.\n- Expand the README, setup instructions, customer-flow audit and trainer study guide; add team credits.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.4.0/HDFC-Bank-1.4.0-ios-unsigned.ipa",
+          "size": 5576554,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "1.3.0",
+          "buildVersion": "1003000",
+          "date": "2026-11-04T07:38:32Z",
+          "localizedDescription": "- Separate account-number and QR payment methods into distinct paths.\n- Improve incoming-money notifications with independent timed alerts while the account is open.\n- Integrate the updated payment interface into the main branch.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.3.0/HDFC-Bank-1.3.0-ios-unsigned.ipa",
+          "size": 5576520,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "1.2.0",
+          "buildVersion": "1002000",
+          "date": "2026-11-04T06:03:25Z",
+          "localizedDescription": "- Add customer contact settings, nominees with guardian details, saved recipients, payment preferences and support requests.\n- Add demo virtual-card creation and freeze controls.\n- Expand QR payment/receive flows, receipt and statement exports, password recovery and transaction-PIN recovery.\n- Add secure transfers and native Google sign-in support.\n- Improve iOS safe-area handling, receive-screen positioning, API typing and sign-in loading recovery.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.2.0/HDFC-Bank-1.2.0-ios-unsigned.ipa",
+          "size": 5575549,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "1.1.0",
+          "buildVersion": "1001000",
+          "date": "2026-11-04T02:46:11Z",
+          "localizedDescription": "- Improve the responsive banking interface across the web and shared mobile app.\n- Harden account identity and account-number handling.\n- Switch Android packages to the project's release signing key. Updating from 1.0.0 requires uninstalling its debug-signed app first.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.1.0/HDFC-Bank-1.1.0-ios-unsigned.ipa",
+          "size": 1620831,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "1.0.0",
+          "buildVersion": "1000000",
+          "date": "2026-11-03T17:34:35Z",
+          "localizedDescription": "- First web and mobile release of the Django/React banking simulator.\n- Register and sign in, view savings-account details, deposit, withdraw and transfer fictional funds.\n- Browse transaction history and mini-statements; manage accounts through Django administration.\n- Configure Google OAuth and publish the privacy notice.\n- Publish an Android debug-signed APK and unsigned iOS IPA.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.0.0/HDFC-Bank-1.0.0-ios-unsigned.ipa",
+          "size": 1538389,
+          "minOSVersion": "15.0"
+        }
+      ],
+      "version": "1.5.0",
+      "versionDate": "2026-11-04T11:50:01Z",
+      "versionDescription": "- Open saved sessions without briefly showing the public landing page. Show a neutral startup screen and dashboard skeleton while loading.\n- Add an optional app-only device lock using Face ID, fingerprint or the phone's screen lock. Offer setup after the first app login and enable/disable it in Security settings. Store native sessions in local secure storage; lock protected accounts on backgrounding and at the next launch. Account sign-in remains the recovery path.\n- Hide the dashboard balance and account number by default; reveal both with one eye button.\n- Hide virtual-card numbers and CVVs by default, with a separate eye button for card details.\n- Choose VISA, RuPay or Mastercard for randomly generated, persistent numeric demo cards. Freeze/unfreeze a card or replace its details and network with transaction-PIN confirmation.\n- Keep settings in a two-column tile grid on mobile.\n- Add a branded 404 screen for missing pages and unknown in-app routes.\n- Remove the repeated footer notice throughout the website and app.\n- Add an AltStore-compatible LiveContainer source with published iOS version history. Manual iOS releases refresh the source automatically.\n- Add version-specific notes for previous releases and reuse these notes in the manual release workflow.\n\nDevice unlock requires a phone screen lock and a native app build. It does not change website sign-in or replace the existing transaction PIN. Device hardware and LiveContainer behavior require testing on the target phone.",
+      "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.5.0/HDFC-Bank-1.5.0-ios-unsigned.ipa",
+      "size": 5723923,
+      "minOSVersion": "15.0",
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": [
+          {
+            "name": "NSCameraUsageDescription",
+            "usageDescription": "Allow camera access to scan an account QR code."
+          },
+          {
+            "name": "NSFaceIDUsageDescription",
+            "usageDescription": "Use Face ID to unlock your account when device unlock is enabled."
+          }
+        ]
+      }
+    }
+  ],
+  "news": []
+}

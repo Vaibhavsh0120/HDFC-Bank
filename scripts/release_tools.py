@@ -11,7 +11,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'Vaibhavsh0120/HDFC-Bank'
-SOURCE_BRANCH = 'livecontainer'
+SOURCE_BRANCH = 'main'
 SOURCE_URL = f'https://raw.githubusercontent.com/{REPOSITORY}/{SOURCE_BRANCH}/apps.json'
 
 
@@ -91,13 +91,7 @@ class GitHub:
             page += 1
 
     def publish_source(self, source):
-        try:
-            self.api('git/ref/heads/' + SOURCE_BRANCH)
-        except urllib.error.HTTPError as error:
-            if error.code != 404:
-                raise
-            main = self.api('git/ref/heads/main')
-            self.api('git/refs', 'POST', {'ref': 'refs/heads/' + SOURCE_BRANCH, 'sha': main['object']['sha']})
+        self.api('git/ref/heads/' + SOURCE_BRANCH)
         content = (json.dumps(source, indent=2, ensure_ascii=False) + '\n').encode()
         body = {'message': f"Update LiveContainer source to {source['apps'][0]['version']}", 'branch': SOURCE_BRANCH, 'content': base64.b64encode(content).decode()}
         try:

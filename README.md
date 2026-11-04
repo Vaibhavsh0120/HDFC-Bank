@@ -7,7 +7,7 @@
 
   Manage an account, move funds and follow your activity across the web and mobile.
 
-  [Open the website](https://hdfc-bank-web.onrender.com) · [Mobile releases](https://github.com/Vaibhavsh0120/HDFC-Bank/releases) · [LiveContainer source](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/livecontainer/apps.json) · [Release notes](CHANGELOG.md) · [Trainer study guide](docs/PROJECT-STUDY-GUIDE.md)
+  [Open the website](https://hdfc-bank-web.onrender.com) · [Mobile releases](https://github.com/Vaibhavsh0120/HDFC-Bank/releases) · [LiveContainer source](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json) · [Release notes](CHANGELOG.md) · [Trainer study guide](docs/PROJECT-STUDY-GUIDE.md)
 </div>
 
 ---
@@ -103,7 +103,7 @@ This preview ignores hosted database credentials and uses `backend/demo.sqlite3`
 
 ## Mobile app and LiveContainer
 
-Add the [HDFC Bank source URL](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/livecontainer/apps.json) in LiveContainer's source manager. It lists published iOS IPAs and their release notes. Publishing an iOS or combined build through **Actions → Mobile release** automatically refreshes the same source URL; Android-only and unpublished builds do not change its iOS version. Refresh the source in LiveContainer to see updates. This updates the catalog; it does not silently install apps on your phone.
+Add the [HDFC Bank source URL](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json) in LiveContainer's source manager. It lists published iOS IPAs and their release notes. Publishing an iOS or combined build through **Actions → Mobile release** automatically refreshes the same source URL; Android-only and unpublished builds do not change its iOS version. Refresh the source in LiveContainer to see updates. This updates the catalog; it does not silently install apps on your phone.
 
 On the first native app login, choose **Enable device unlock** or **Not now**. Change this later under **Settings → Security → Device unlock**. Enabled sessions lock when the app goes into the background and at the next cold launch. Authentication uses the phone's system prompt, including its passcode/password fallback. No app login PIN is created. The website has no device-unlock prompt or setting; the existing transaction PIN still protects payments and card changes.
 
