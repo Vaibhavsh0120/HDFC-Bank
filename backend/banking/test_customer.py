@@ -224,6 +224,15 @@ class CustomerFlowTests(APITestCase):
         self.client.delete('/api/beneficiaries/', {'number': self.other_account.number}, format='json')
         self.assertFalse(Beneficiary.objects.exists())
 
+    def test_saved_legacy_recipient_can_be_removed_when_frozen(self):
+        Account.objects.filter(pk=self.other_account.pk).update(account_number=None, status=Account.Status.FROZEN)
+        Beneficiary.objects.create(account=self.account, recipient=self.other_account)
+        legacy_number = f'90{self.other_account.pk:010d}'
+        result = self.client.delete('/api/beneficiaries/', {'number': legacy_number}, format='json')
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.data['beneficiaries'], [])
+        self.assertFalse(Beneficiary.objects.filter(account=self.account).exists())
+
     def test_virtual_card_creation_is_idempotent_pin_protected_and_isolated(self):
         self.assertIsNone(self.client.get('/api/card/').data['card'])
         self.assertEqual(self.client.post('/api/card/', {'pin': '9999'}).status_code, 403)

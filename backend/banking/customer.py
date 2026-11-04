@@ -20,7 +20,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from .models import Account, AccessSession, Beneficiary, EmailChallenge, Nominee, SupportRequest, VirtualCard
 from .pin import verify_pin
 from .serializers import account_data
-from .services import BankingError, recipient_for
+from .services import BankingError, account_id, recipient_for
 from .views import own_account
 
 
@@ -304,7 +304,12 @@ def beneficiaries(request):
     if request.method != 'GET':
         number = serializers.RegexField(r'^9[01][0-9]{10}$').run_validation(request.data.get('number'))
         if request.method == 'DELETE':
-            Beneficiary.objects.filter(account=account, recipient__account_number=number).delete()
+            try:
+                target_id = account_id(number)
+            except BankingError:
+                pass  # Removing an absent recipient is idempotent.
+            else:
+                Beneficiary.objects.filter(account=account, recipient_id=target_id).delete()
         else:
             try:
                 target = recipient_for(account.pk, number)
