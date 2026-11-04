@@ -63,10 +63,6 @@ jobs:
         run: |
           set -euo pipefail
           tag="v$VERSION"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "::error::Release $tag already exists. Choose a new version."
-            exit 1
-          fi
           if target=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha 2>/dev/null); then
             test "$target" = "$GITHUB_SHA" || { echo "::error::Tag $tag points to different source."; exit 1; }
           else
@@ -186,10 +182,6 @@ jobs:
         run: |
           set -euo pipefail
           tag="v$VERSION"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "::error::Release $tag already exists. Choose a new version."
-            exit 1
-          fi
           notes="$RUNNER_TEMP/release-notes.md"
           if python3 scripts/release_tools.py notes --version "$VERSION" --output "$notes"; then
             echo "Using version-specific CHANGELOG notes."
@@ -197,8 +189,13 @@ jobs:
             gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" --jq .body > "$notes"
             printf '\n\nAndroid APKs use the project release key. The iOS IPA is unsigned and requires a compatible signing or LiveContainer setup. Fictional funds only.\n' >> "$notes"
           fi
-          gh release create "$tag" artifacts/* --verify-tag --title "HDFC Bank $VERSION" \
-            --notes-file "$notes"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/* --clobber
+            gh release edit "$tag" --notes-file "$notes"
+          else
+            gh release create "$tag" artifacts/* --verify-tag --title "HDFC Bank $VERSION" \
+              --notes-file "$notes"
+          fi
 
   livecontainer:
     needs: publish

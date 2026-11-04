@@ -37,8 +37,8 @@ async (page) => {
   const latency = Date.now() - start;
   await page.screenshot({ path: 'artifacts/browser/v162-qr-received.png', fullPage: true });
   const shown = Date.now();
-  await page.locator('.receive-flip:not(.has-payment)').waitFor({ timeout: 4000 });
-  assert(Date.now() - shown >= 1700, 'QR confirmation disappeared too soon');
+  await page.locator('.receive-flip:not(.has-payment)').waitFor({ timeout: 9000 });
+  assert(Date.now() - shown >= 6500, 'QR confirmation disappeared too soon');
   await transfer('12.00');
   await page.locator('.receive-flip.has-payment').waitFor();
   await page.getByRole('button', { name: /Payment received/ }).click();
@@ -56,5 +56,5 @@ async (page) => {
   await page.goto(origin + '/#payments/receive');
   await page.getByRole('heading', { name: 'Your receive QR' }).waitFor();
   assert(await page.locator('.receive-flip-inner').evaluate(e => getComputedStyle(e).transitionDuration) === '0s', 'Reduced-motion preference ignored');
-  return { passed: ['Initial request interruption loses no payment', 'Actual credit amount and sender', 'QR flip and 3-second reset', 'Tap restores QR', 'Other pages retain banner', 'No duplicate after reload', 'Reduced motion'], latencyMs: latency };
+  return { passed: ['Initial request interruption loses no payment', 'Actual credit amount and sender', 'QR flip and 8-second reset', 'Tap restores QR', 'Other pages retain banner', 'No duplicate after reload', 'Reduced motion'], latencyMs: latency };
 }

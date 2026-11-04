@@ -4,7 +4,7 @@ All money, accounts and virtual cards in this project are fictional. Android 1.1
 
 ## 1.6.2 — 2026-11-04
 
-- Flip the receive QR into a payment-success card showing the actual amount and sender. Restore the QR after three seconds or a tap, with reduced-motion support.
+- Flip the receive QR into a payment-success card showing the actual amount and sender. Restore the QR after eight seconds or a tap, with reduced-motion support.
 - Check incoming payments every second while visible, retry immediately after reconnecting or returning, and retain progress across temporary failures and reloads.
 - Fix a first-poll timing gap that could skip a payment arriving during account startup. Other pages keep their existing banner and notification preferences remain respected.
 - Reserve release tags before long builds to prevent publication permission errors when newer workflow commits reach `main` during a build.

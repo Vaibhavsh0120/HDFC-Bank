@@ -74,7 +74,7 @@ export function ReceiveQr({ account, latestReceived }: { account: Account; lates
   }, [latestReceived]);
   useEffect(() => {
     if (!payment || !showPayment) return;
-    const timer = window.setTimeout(() => setShowPayment(false), 3000);
+    const timer = window.setTimeout(() => setShowPayment(false), 8000);
     return () => window.clearTimeout(timer);
   }, [payment?.reference, showPayment]);
   const valid = !amount || (/^[0-9]{1,10}(\.[0-9]{1,2})?$/.test(amount) && Number(amount) > 0 && Number(amount) <= 9999999999.99);
