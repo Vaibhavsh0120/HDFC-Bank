@@ -1,0 +1,67 @@
+# Final project review
+
+**Review date:** 4 November 2026 · **Scope:** application source, API, financial rules, account security, frontend flows, migrations, dependencies, deployment configuration, release workflow and documentation.
+
+This is an educational banking simulation. The checks below support a trainer demonstration and source handoff; they do not certify a real banking system or guarantee a mark against a rubric that has not been supplied.
+
+## Findings and fixes
+
+| ID | Severity | Finding | Resolution and evidence |
+| --- | --- | --- | --- |
+| F-01 | High | A concurrent payment-lock update could compare against a stale snapshot and unlock payments without a PIN. | Compare against the locked account row inside the transaction. Regression reproduces the bypass; missing/incorrect PINs now leave the lock intact and failed attempts persist. |
+| F-02 | High | Changing a password left other bearer sessions and earlier password-reset codes valid. | Retain only the current bearer session; revoke other sessions and outstanding password-reset challenges. Tests verify the retained login, rejected old session and rejected code. |
+| F-03 | High | A login using credentials validated just before password recovery could issue a fresh token after recovery revoked prior sessions. | Recheck the authenticated password snapshot, active status and login identity under the same user lock used by password changes/recovery before issuing a token. Regression tests cover password, active-status and username changes. |
+| F-04 | Medium | Removing a saved legacy account returned success without deleting it when its stored account number was null. | Resolve legacy and current account numbers through the shared lookup, then delete only this customer's saved pair. A frozen legacy recipient can also be removed. |
+| F-05 | High | The REST Framework dependency ceiling retained a version flagged by the Python vulnerability audit. | Upgrade to REST Framework 3.18.3+, raise Django's minimum to the audited 5.2.19, update development stubs, and rerun API tests and the vulnerability audit. |
+| F-06 | Medium | Mobile packaging had no automated API/database correctness gate; the browser script used a developer-specific absolute path. | Add a reusable verification workflow and isolated loopback-only MySQL test settings. Mobile preparation depends on verification. Smoke artifacts now use relative paths; the script simulates a lost committed response and a safe retry after reload. |
+| F-07 | Medium | A valid 150-character name pushed the desktop header beyond the viewport. Google sign-in also placed an accessibility label on a generic container that cannot be named. | Constrain and truncate the header name while keeping the full text in the DOM; remove the invalid label. A regression checks 15 route/width combinations. The final screen scan reports no violations in its tested WCAG rule subset. |
+
+Each functional defect was reproduced before its fix. Backend fixes include regression tests. Changes are recorded in separate commits with finding IDs.
+
+## Verification results
+
+| Check | Result |
+| --- | --- |
+| Full Django suite on MySQL 8.0.43 | **54 passed, no skips**, using a separate local instance and disposable test database. Includes real InnoDB concurrent withdrawal and request-replay tests. |
+| Isolated SQLite suite | **52 passed, 2 skipped**. SQLite cannot verify MySQL row locks. |
+| Django system checks and migration drift | No issues; no uncreated model migrations. Existing migrations applied successfully to the fresh MySQL test database. |
+| Python dependency consistency/audit | `pip check` passed; `pip-audit --local` found no known vulnerabilities after the upgrade. This is a point-in-time dependency scan. |
+| Frontend type check and production build | Passed, with zero errors, warnings or hints from Astro checking. |
+| npm dependency audit | Zero reported vulnerabilities. |
+| GitHub workflow syntax | Both workflows passed actionlint 1.7.12. Hosted execution is a separate check. |
+| Browser customer journey | Registration, login persistence, deposit, QR-image transfer, recipient balance, PIN setup, interrupted withdrawal/reload/replay, contact details, nominee with guardian, recipients, payment lock, demo-card issue/freeze, support and CSV export passed. |
+| Screen/accessibility sweep | 43 rendered states: 12 account routes at 390/1440/1728 pixels, profile edit and transfer dialog, plus home, login, registration, recovery and privacy. No horizontal overflow; zero axe violations for the tested WCAG A/AA and 2.1 AA tags after the accessibility fix. This is automated coverage, not a full manual WCAG certification. |
+| Long-name regression | Overview, settings and cards fit at 320, 390, 768, 1440 and 1728 pixels with a valid maximum-length customer name. |
+
+Backend results were rerun with Django 5.2.19 and REST Framework 3.18.3. Local frontend checks used Node.js 26.13.0; the workflow selects Node 22 as declared by the project. MySQL test password hashes are deliberately fast; the ordinary app and sequential demo retain PBKDF2. No hosted database was used for these tests.
+
+The review preserved the existing design. Better Design tools were requested for principles, review, comprehension and spacing, but returned the monthly quota error. No Better Design score or completed measurement is claimed; direct screenshots, DOM widths, axe checks and flow testing supplied the available evidence.
+
+## Reproduce the checks
+
+Start with [the README](../README.md#run-a-local-demo) for an isolated demo, then follow [Setup and operations](SETUP.md#testing) for MySQL testing and dependency/build commands. From the repository root with the demo API and frontend running:
+
+```powershell
+npx --package @playwright/cli playwright-cli -s=bank-audit open http://127.0.0.1:4322/
+npx --package @playwright/cli playwright-cli -s=bank-audit run-code --filename scripts/ui-smoke.cjs
+npx --package @playwright/cli playwright-cli -s=bank-audit run-code --filename scripts/ui-layout.cjs
+```
+
+Both scripts create fictional users against loopback port 8011 and write outputs under ignored `artifacts/`. The browser sweep used a locally installed axe-core; it is not a frontend runtime dependency. Screenshots, local test databases, audit tooling and recovery emails are not release assets.
+
+## Remaining external checks
+
+- **Hosted recovery:** configure an email sender and verify actual inbox delivery before demonstrating hosted password/PIN recovery. The final review tested local/API recovery behavior and mocked provider acceptance, not a production inbox.
+- **Native hardware:** camera scanning, file sharing, Google account login and safe areas need physical Android/iPhone checks. iOS compilation/signing was not performed on Windows. Previous local Android build evidence is described in the customer-flow audit; this review does not claim a newly published mobile binary.
+- **Hosting and Actions:** confirm the pushed commit is deployed by Render and that GitHub Actions is allowed to execute. A local build and valid workflow do not prove a hosted run.
+- **Trainer rubric:** the application uses one Django domain app and no custom banking many-to-many field. The trainer must assess these against the actual assignment. Team contributions and reviews must reflect real work.
+
+## Scope limits worth explaining
+
+- Funds, internal account transfers, cards and nomination records are fictional. The app does not implement external payment networks, KYC, card authorization or bank settlement.
+- Registration and contact changes do not verify email ownership. Deposits are intentionally available for demonstration. There is no configured daily transfer limit.
+- Bearer sessions are stored in browser/app local storage for up to 30 days. That is a deliberate convenience tradeoff: script access to the origin can expose a token. PIN protection and HTTPS are additional controls, not a replacement for preventing script injection.
+- Request throttling uses the default per-process cache; it is not a distributed abuse-prevention system. Incoming alerts use polling while the app is open, not guaranteed background push delivery.
+- Production security checks retain Django's two advisory notices about HSTS subdomains/preload. Those settings were not enabled blindly for a shared hosting domain; HTTPS redirects, secure cookies and one-year HSTS are already configured for production.
+
+For the demonstration narrative, database relationships, API routes and sample SQL, use the [trainer study guide](PROJECT-STUDY-GUIDE.md).
