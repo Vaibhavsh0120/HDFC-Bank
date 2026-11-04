@@ -1,7 +1,7 @@
 from decimal import Decimal
 from uuid import uuid4
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 
 from .authentication import issue_token
@@ -10,8 +10,8 @@ from .models import Account, Entry
 
 class IncomingUpdatesTests(APITestCase):
     def setUp(self):
-        user = get_user_model().objects.create_user(username="receiver", password="example-pass")
-        sender = get_user_model().objects.create_user(username="sender", password="example-pass")
+        user = User.objects.create_user(username="receiver", password="example-pass")
+        sender = User.objects.create_user(username="sender", password="example-pass")
         self.account = Account.objects.create(owner=user)
         self.sender = Account.objects.create(owner=sender)
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + issue_token(user))
@@ -37,7 +37,7 @@ class IncomingUpdatesTests(APITestCase):
         self.transfer("1.00")
         for cursor in ("-1", "NaN", "9" * 20):
             self.assertEqual(self.client.get("/api/activity/updates/", {"after": cursor}).status_code, 400)
-        other = get_user_model().objects.create_user(username="other", password="example-pass")
+        other = User.objects.create_user(username="other", password="example-pass")
         Account.objects.create(owner=other)
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + issue_token(other))
         self.assertEqual(self.client.get("/api/activity/updates/", {"after": "0"}).data["entries"], [])

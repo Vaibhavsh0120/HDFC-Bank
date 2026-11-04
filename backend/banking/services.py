@@ -50,6 +50,7 @@ class Movement(ABC):
     @abstractmethod
     def changes(self, source, target, amount):
         """Return account and signed balance change pairs."""
+        raise NotImplementedError
 
 
 class Deposit(Movement):
@@ -125,12 +126,14 @@ def _post_entry(source_id, instruction):
     if (instruction.kind == Entry.Kind.TRANSFER) != (target_id is not None):
         raise BankingError("A recipient is required only for transfers.")
     amount = instruction.amount
+    exponent = amount.as_tuple().exponent if isinstance(amount, Decimal) else None
     if (
         not isinstance(amount, Decimal)
         or not amount.is_finite()
         or amount <= 0
         or amount > MAX_TRANSACTION
-        or amount.as_tuple().exponent < -2
+        or not isinstance(exponent, int)
+        or exponent < -2
     ):
         raise BankingError("Enter a valid amount with at most two decimal places.")
     if not isinstance(instruction.request_id, UUID):

@@ -22,8 +22,10 @@ function loadGoogleScript(): Promise<void> {
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => { googleScript = undefined; script.remove(); reject(new Error('Google sign-in could not load.')); };
+      const fail = () => { clearTimeout(timer); googleScript = undefined; script.remove(); reject(new Error('Google sign-in could not load.')); };
+      const timer = window.setTimeout(fail, 12000);
+      script.onload = () => { clearTimeout(timer); resolve(); };
+      script.onerror = fail;
       document.head.appendChild(script);
     });
   }
@@ -44,11 +46,12 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
     if (native || !window.isSecureContext) return;
     setError('');
     setLoading(true);
-    request<{ client_id: string }>('auth/google/config/').then(async ({ client_id }) => {
+    request<{ client_id: string }>('auth/google/config/', { timeoutMs: 15000 }).then(async ({ client_id }) => {
       if (!active || !client_id) return;
       setEnabled(true);
       await loadGoogleScript();
-      if (!active || !element.current || !window.google) return;
+      if (!active) return;
+      if (!element.current || !window.google) { googleScript = undefined; throw new Error('Google sign-in could not load.'); }
       window.google.accounts.id.initialize({
         client_id,
         callback: async ({ credential }) => {
@@ -70,7 +73,7 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
         text: registration ? 'signup_with' : 'signin_with',
       });
     }).catch(() => {
-      if (active) setError('Google sign-in could not load. Use your email and password or try again later.');
+      if (active) setError('Google sign-in could not load. Check your connection and try again.');
     }).finally(() => {
       if (active) setLoading(false);
     });

@@ -19,6 +19,7 @@ HDFC-Bank.pdf
 HDFC-Bank.pptx
 
 .playwright-cli/
+.playwright-mcp/
 playwright-report/
 test-results/
 *.jks

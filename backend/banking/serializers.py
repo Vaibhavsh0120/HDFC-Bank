@@ -1,27 +1,24 @@
 from decimal import Decimal
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from .models import Entry
 
-User = get_user_model()
-
-
 class RegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
     email = serializers.EmailField(max_length=150)
     password = serializers.CharField(max_length=128, write_only=True, trim_whitespace=False)
 
-    def validate(self, data):
-        email = data["email"].lower()
+    def validate(self, attrs):
+        email = attrs["email"].lower()
         try:
-            validate_password(data["password"], User(username=email, email=email, first_name=data["name"]))
+            validate_password(attrs["password"], User(username=email, email=email, first_name=attrs["name"]))
         except DjangoValidationError as exc:
             raise serializers.ValidationError({"password": exc.messages}) from exc
-        return {**data, "email": email}
+        return {**attrs, "email": email}
 
 
 class LoginSerializer(serializers.Serializer):
@@ -41,10 +38,10 @@ class InstructionSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=140, allow_blank=True, default="")
     pin = serializers.RegexField(regex=r"^[0-9]{4,6}$", required=False, write_only=True)
 
-    def validate(self, data):
-        if (data["kind"] == Entry.Kind.TRANSFER) != ("recipient" in data):
+    def validate(self, attrs):
+        if (attrs["kind"] == Entry.Kind.TRANSFER) != ("recipient" in attrs):
             raise serializers.ValidationError({"recipient": "A recipient is required only for transfers."})
-        return data
+        return attrs
 
 
 class PinSerializer(serializers.Serializer):

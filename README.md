@@ -23,7 +23,10 @@
 | **Activity and statements** | Search and filter transactions, inspect receipts and open a mini-statement. |
 | **Administration** | Review customers, accounts and transactions, and manage account status through Django admin. |
 
-<img src="frontend/public/account-mobile.png" width="260" alt="Mobile account overview" />
+<p align="center">
+  <img src="frontend/public/account-mobile.png" height="360" alt="Mobile account overview" />
+  <img src="frontend/public/account-desktop.png" height="360" alt="Desktop account overview" />
+</p>
 
 ## Contents
 
@@ -54,7 +57,7 @@ Install the dependencies once from the project root in PowerShell.
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\python -m pip install -r backend\requirements.txt
+.\.venv\Scripts\python -m pip install -r backend\requirements-dev.txt
 cd frontend
 npm ci
 cd ..
@@ -94,7 +97,7 @@ Use the local scripts above for MySQL, or configure a local MySQL database manua
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\python -m pip install -r backend\requirements.txt
+.\.venv\Scripts\python -m pip install -r backend\requirements-dev.txt
 if (!(Test-Path backend\.env)) { Copy-Item backend\.env.example backend\.env }
 if (!(Test-Path frontend\.env)) { Copy-Item frontend\.env.example frontend\.env }
 $env:DJANGO_DEBUG = "1"
@@ -184,6 +187,7 @@ npm run build
 ```
 
 The Django suite covers authentication, transaction validation, retries, account isolation, administration and statements. MySQL-specific concurrency tests need a separate test database and sufficient permissions to create it.
+The development requirements include Django and REST Framework type stubs so VS Code can analyze the backend. Select the project `.venv` interpreter in VS Code if it retains an older interpreter selection.
 
 ## Project structure
 

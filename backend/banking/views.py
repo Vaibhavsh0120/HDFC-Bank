@@ -24,13 +24,13 @@ from .services import BankingError, Instruction, account_id, mini_statement, pos
 
 class AccessThrottle(ScopedRateThrottle):
     def allow_request(self, request, view):
-        view.throttle_scope = "access"
+        setattr(view, "throttle_scope", "access")
         return super().allow_request(request, view)
 
 
 class RecipientThrottle(ScopedRateThrottle):
     def allow_request(self, request, view):
-        view.throttle_scope = "recipient"
+        setattr(view, "throttle_scope", "recipient")
         return super().allow_request(request, view)
 
 
@@ -237,10 +237,12 @@ def history(request):
     paginator = PageNumberPagination()
     paginator.page_size = 15
     rows = paginator.paginate_queryset(entries, request)
+    if rows is None:
+        raise RuntimeError("History pagination is not configured.")
     return paginator.get_paginated_response([entry_data(entry, account.pk) for entry in rows])
 
 
 def health(request):
     with connection.cursor() as cursor:
         cursor.execute("SELECT 1")
-    return JsonResponse({"status": "ok"})
+    return JsonResponse({"status": "ok", "api_version": 2})
