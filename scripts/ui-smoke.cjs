@@ -45,6 +45,7 @@ async (page) => {
   await receiver.getByLabel('Payment note').fill('Shared lunch');
   await receiver.locator('.receive-code svg').screenshot({ path: screenshots + '/receiver-qr.png' });
   await go('payments', 'Scan & pay');
+  await page.getByRole('button', { name: /^Pay with QR/ }).click();
   await page.getByLabel('Upload QR image').setInputFiles(screenshots + '/receiver-qr.png');
   await page.getByRole('dialog').waitFor();
   assert(await page.getByLabel('Recipient account number').inputValue() === bob.account.number, 'QR recipient was not decoded');

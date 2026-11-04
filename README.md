@@ -143,4 +143,10 @@ render.yaml          Frontend and API hosting configuration
 - Camera scanning, native file sharing and Google sign-in need physical-device validation. The iOS package is unsigned and requires Apple signing/provisioning.
 - The team must provide its actual contributions and match the trainer's rubric. The project has one Django domain app and no custom banking many-to-many model.
 
+## Team
+
+- Vaibhav Sharma
+- Aashi Agarwal
+- Yashika Pachori
+
 Found an issue? [Open a GitHub issue](https://github.com/Vaibhavsh0120/HDFC-Bank/issues) with reproduction steps, without passwords, PINs, tokens or recovery codes.
