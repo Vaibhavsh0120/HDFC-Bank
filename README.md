@@ -153,7 +153,9 @@ Free hosting may take time to wake after inactivity. The interface reports conne
 3. Choose Android, iOS or both, enter a new version such as `1.0.0`, and choose whether to publish.
 4. Download successful artifacts from the workflow run or, when publishing is selected, from GitHub Releases.
 
-The Android APK uses a debug signature. The iOS IPA is unsigned and needs Apple signing and provisioning before it can be installed. A release is published only when every selected build succeeds; an existing release version is not overwritten.
+Android APKs are signed using the project release key. Configure repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_ALIAS` before building. The encrypted recovery archive is stored locally at `D:/Dev/Secrets/age/hdfc-bank-release.credentials.age`. Keep it and the age identity safe. The v1.0.0 APK used a different debug key, so it must be uninstalled before installing a release signed with the project key.
+
+The iOS IPA is unsigned and needs Apple signing and provisioning before it can be installed. A release is published only when every selected build succeeds; an existing release version is not overwritten.
 
 ## Testing
 

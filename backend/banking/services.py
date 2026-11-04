@@ -62,9 +62,16 @@ MOVEMENTS = {"deposit": Deposit(), "withdraw": Withdrawal(), "transfer": Transfe
 
 
 def account_id(number):
-    if len(number) != 12 or not number.startswith("90") or not number.isascii() or not number.isdecimal():
+    if len(number) != 12 or not number.startswith(("90", "91")) or not number.isascii() or not number.isdecimal():
         raise AccountUnavailable("Enter a valid 12-digit account number.")
-    return int(number[2:])
+    match = Account.objects.filter(account_number=number).values_list("pk", flat=True).first()
+    if match is None and number.startswith("90"):
+        match = Account.objects.filter(
+            pk=int(number[2:]), account_number__isnull=True,
+        ).values_list("pk", flat=True).first()
+    if match is None:
+        raise AccountUnavailable("This recipient account is unavailable.")
+    return match
 
 
 def recipient_for(source_id, number):

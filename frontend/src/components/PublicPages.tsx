@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, Eye, EyeOff, History, Landmark, ShieldCheck } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, Eye, EyeOff, History, Landmark, Smartphone, ShieldCheck } from 'lucide-react';
 import { message, request, type Session } from '../lib/banking';
 
 type GoogleApi = {
@@ -89,9 +89,9 @@ export function PublicHeader() {
   return <header className="site-header"><div className="wrap header-inner">
     <Brand />
     <nav className="public-nav" aria-label="Main navigation">
-      <a className="nav-services" href="#services">Services</a>
+      <a className="nav-services" href="#services">Everyday banking</a>
       <a className="sign-in-link" href="#login">Sign in</a>
-      <a className="btn primary compact" href="#register">Open account <ArrowUpRight size={16} /></a>
+      <a className="btn primary compact" href="#register">Open an account <ArrowUpRight size={16} /></a>
     </nav>
   </div></header>;
 }
@@ -110,31 +110,32 @@ export function Landing() {
       <section className="hero">
         <div className="wrap hero-inner">
           <div className="hero-copy">
-            <p className="eyebrow"><span /> PERSONAL BANKING</p>
-            <h1>Banking made<br />clearer.</h1>
-            <p className="hero-text">Manage your savings, move funds between accounts and see where your balance stands.</p>
+            <p className="eyebrow"><span /> EVERYDAY BANKING</p>
+            <h1>Your money.<br />In your hands.</h1>
+            <p className="hero-text">A simpler way to manage your savings. Check your balance, transfer funds and keep track of your activity, all in one place.</p>
             <div className="hero-actions">
-              <a className="btn primary" href="#register">Open a savings account <ArrowRight size={18} /></a>
-              <a className="btn secondary" href="#login">Sign in</a>
+              <a className="btn primary" href="#register">Open an account <ArrowRight size={18} /></a>
+              <a className="hero-link" href="#login">Already a customer? <span>Sign in</span> <ArrowRight size={16} /></a>
             </div>
           </div>
-          <div className="hero-art" aria-hidden="true">
-            <div className="art-grid" />
-            <svg className="orbital" viewBox="0 0 560 420" fill="none">
-              <ellipse cx="290" cy="225" rx="241" ry="103" transform="rotate(-26 290 225)" />
-              <ellipse cx="290" cy="225" rx="210" ry="126" transform="rotate(34 290 225)" />
-              <ellipse cx="290" cy="225" rx="245" ry="156" transform="rotate(-26 290 225)" />
-              <circle cx="93" cy="274" r="5" /><circle cx="457" cy="121" r="4" />
-            </svg>
-            <div className="art-emblem"><img src="/mark.svg" alt="" /></div>
-            <div className="art-label art-label-top"><ShieldCheck size={19} /><span>Private access</span></div>
-            <div className="art-label art-label-bottom"><Landmark size={19} /><span>Personal savings</span></div>
-            <span className="art-index">01 / EVERYDAY BANKING</span>
-          </div>
+          <aside className="hero-panel" aria-label="Banking features">
+            <img className="hero-photo" src="/people-banking.webp" alt="A woman using a laptop at home" width="1200" height="675" fetchPriority="high" />
+            <div className="hero-photo-note">
+              <span className="hero-photo-icon"><Smartphone size={20} /></span>
+              <p><strong>Banking on your terms</strong><small>Your account is just a few taps away.</small></p>
+            </div>
+          </aside>
         </div>
       </section>
+      <div className="service-strip">
+        <div className="wrap service-strip-inner">
+          <span><ShieldCheck size={18} /> Personal account access</span>
+          <span><Smartphone size={18} /> Designed for any screen</span>
+          <span><History size={18} /> Activity in one place</span>
+        </div>
+      </div>
       <section id="services" className="services wrap">
-        <div className="section-intro"><p className="eyebrow">YOUR ACCOUNT</p><h2>Everyday banking essentials</h2></div>
+        <div className="section-intro"><div><p className="eyebrow">YOUR ACCOUNT</p><h2>All the essentials, together.</h2><p>Explore the ways you can manage your account.</p></div><a className="text-link" href="#register">Get started <ArrowRight size={16} /></a></div>
         <div className="service-grid">{services.map(({ icon: Icon, title, text }) => <article className="service-card" key={title}>
           <span className="icon-box"><Icon size={21} /></span><h3>{title}</h3><p>{text}</p>
         </article>)}</div>
