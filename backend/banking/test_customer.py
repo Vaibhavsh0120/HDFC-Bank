@@ -69,6 +69,29 @@ class CustomerFlowTests(APITestCase):
         self.assertEqual(result.status_code, 200)
         self.assertFalse(result.data['transfer_alerts'])
 
+    def test_concurrent_payment_lock_change_cannot_bypass_pin(self):
+        from .views import own_account
+
+        def stale_account(request):
+            snapshot = own_account(request)
+            Account.objects.filter(pk=snapshot.pk).update(payment_locked=True)
+            return snapshot
+
+        # Another request locks payments after this request reads its snapshot.
+        with patch('banking.customer.own_account', side_effect=stale_account):
+            result = self.client.patch('/api/profile/', {'payment_locked': False})
+        self.assertEqual(result.status_code, 400)
+        self.account.refresh_from_db()
+        self.assertTrue(self.account.payment_locked)
+
+    def test_rejected_payment_lock_change_preserves_pin_failures(self):
+        Account.objects.filter(pk=self.account.pk).update(payment_locked=True)
+        result = self.client.patch('/api/profile/', {'payment_locked': False, 'pin': '9999'})
+        self.assertEqual(result.status_code, 403)
+        self.account.refresh_from_db()
+        self.assertTrue(self.account.payment_locked)
+        self.assertEqual(self.account.pin_failures, 1)
+
     def test_password_reset_email_code_single_use_and_session_cleanup(self):
         self.client.credentials()
         self.assertEqual(self.client.post('/api/auth/password/reset/request/', {'email': self.user.email}).status_code, 200)
