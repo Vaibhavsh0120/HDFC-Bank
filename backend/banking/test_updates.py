@@ -33,6 +33,14 @@ class IncomingUpdatesTests(APITestCase):
         self.assertEqual([row["reference"] for row in result["entries"]], [str(new.reference)])
         self.assertEqual(result["entries"][0]["direction"], "credit")
 
+    def test_dashboard_supplies_incoming_cursor_for_first_poll(self):
+        old = self.transfer('1.00')
+        dashboard = self.client.get('/api/dashboard/').data
+        self.assertEqual(dashboard['incoming_cursor'], old.pk)
+        new = self.transfer('2.00')
+        result = self.client.get('/api/activity/updates/', {'after': dashboard['incoming_cursor']}).data
+        self.assertEqual([row['reference'] for row in result['entries']], [str(new.reference)])
+
     def test_other_accounts_and_invalid_cursors(self):
         self.transfer("1.00")
         for cursor in ("-1", "NaN", "9" * 20):

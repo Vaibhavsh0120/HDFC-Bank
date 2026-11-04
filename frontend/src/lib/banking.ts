@@ -9,7 +9,7 @@ export type Entry = {
   reference: string; kind: Kind; amount: string; direction: 'credit' | 'debit';
   description: string; created_at: string; status: string; counterparty: Recipient | null;
 };
-export type Dashboard = { account: Account; recent: Entry[] };
+export type Dashboard = { account: Account; recent: Entry[]; incoming_cursor?: number };
 export type Session = { token: string; account: Account };
 export type History = { count: number; next: string | null; previous: string | null; results: Entry[] };
 export type Instruction = { kind: Kind; amount: string; request_id: string; recipient?: string; description: string };

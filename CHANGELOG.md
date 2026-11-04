@@ -2,6 +2,13 @@
 
 All money, accounts and virtual cards in this project are fictional. Android 1.1.0 and later use the project release signing key; 1.0.0 used a debug key. iOS IPAs are unsigned and need a compatible signing/container setup.
 
+## 1.6.2 — 2026-11-04
+
+- Flip the receive QR into a payment-success card showing the actual amount and sender. Restore the QR after three seconds or a tap, with reduced-motion support.
+- Check incoming payments every second while visible, retry immediately after reconnecting or returning, and retain progress across temporary failures and reloads.
+- Fix a first-poll timing gap that could skip a payment arriving during account startup. Other pages keep their existing banner and notification preferences remain respected.
+- Reserve release tags before long builds to prevent publication permission errors when newer workflow commits reach `main` during a build.
+
 ## 1.6.1 — 2026-11-04
 
 - Center the “ACCOUNT RECOVERY” heading in password and transaction-PIN reset emails.

@@ -4,7 +4,7 @@ from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Q
+from django.db.models import Max, Q
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
@@ -192,8 +192,10 @@ def transaction_pin(request):
 
 @api_view(["GET"])
 def dashboard(request):
+    incoming_cursor = Entry.objects.filter(recipient__owner=request.user, kind=Entry.Kind.TRANSFER).aggregate(value=Max('pk'))['value'] or 0
     account = own_account(request)
     return Response({
+        "incoming_cursor": incoming_cursor,
         "account": account_data(account),
         "recent": [entry_data(entry, account.pk) for entry in mini_statement(account)],
     })

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { QRCodeSVG } from 'qrcode.react';
-import { ArrowLeft, Camera, ChevronRight, Copy, Download, ImagePlus, Info, Landmark, QrCode, ScanLine } from 'lucide-react';
-import { type Account } from '../lib/banking';
+import { ArrowLeft, Camera, Check, ChevronRight, Copy, Download, ImagePlus, Info, Landmark, QrCode, ScanLine } from 'lucide-react';
+import { money, type Account, type Entry } from '../lib/banking';
 import { saveFile } from '../lib/files';
 
 const prefix = 'HDFC-BANK:ACCOUNT:';
@@ -57,11 +57,26 @@ export function QrImageInput({ onScan }: { onScan: (payment: QrPayment) => void 
   </div>;
 }
 
-export function ReceiveQr({ account }: { account: Account }) {
+export function ReceiveQr({ account, latestReceived }: { account: Account; latestReceived?: Entry }) {
   const [feedback, setFeedback] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const qr = useRef<HTMLDivElement>(null);
+  const seen = useRef(latestReceived?.reference);
+  const [payment, setPayment] = useState<Entry>();
+  const [showPayment, setShowPayment] = useState(false);
+  useEffect(() => {
+    if (latestReceived && latestReceived.reference !== seen.current) {
+      seen.current = latestReceived.reference;
+      setPayment(latestReceived);
+      setShowPayment(true);
+    }
+  }, [latestReceived]);
+  useEffect(() => {
+    if (!payment || !showPayment) return;
+    const timer = window.setTimeout(() => setShowPayment(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [payment?.reference, showPayment]);
   const valid = !amount || (/^[0-9]{1,10}(\.[0-9]{1,2})?$/.test(amount) && Number(amount) > 0 && Number(amount) <= 9999999999.99);
   const params = new URLSearchParams();
   if (amount && valid) params.set('amount', Number(amount).toFixed(2));
@@ -92,7 +107,17 @@ export function ReceiveQr({ account }: { account: Account }) {
   return <section className="panel receive-panel">
     <h2>Your receive QR</h2><p>Share with another account holder in this project. You never need a PIN to receive money.</p>
     {account.status === 'Frozen' ? <p className="feedback error">Your account is frozen. It cannot receive transfers. Contact support.</p> : <>
-      {valid ? <div ref={qr} className="receive-code"><QRCodeSVG value={value} size={240} marginSize={4} title="Your account QR code" /></div> : <p className="feedback error" role="alert">Enter a positive amount with up to two decimal places.</p>}
+      {valid ? <div ref={qr} className={'receive-code receive-flip ' + (showPayment ? 'has-payment' : '')}>
+        <div className="receive-flip-inner">
+          <div className="receive-qr-face" aria-hidden={showPayment}><QRCodeSVG value={value} size={240} marginSize={4} title="Your account QR code" /></div>
+          <div className="receive-success-face" aria-hidden={!showPayment}>
+            <button type="button" className="receive-success" tabIndex={showPayment ? 0 : -1} onClick={() => setShowPayment(false)}>
+              <span className="receive-success-icon"><Check size={30} /></span><span>Payment received</span><strong>{payment ? money.format(Number(payment.amount)) : ''}</strong><span>From {payment?.counterparty?.name || 'another account'}</span><small>Tap to show QR again</small>
+            </button>
+          </div>
+        </div>
+        <span className="sr-only" role="status">{showPayment && payment ? `${money.format(Number(payment.amount))} received from ${payment.counterparty?.name || 'another account'}.` : ''}</span>
+      </div> : <p className="feedback error" role="alert">Enter a positive amount with up to two decimal places.</p>}
       <strong>{account.name}</strong><span className="receive-number">{account.number}</span>
       <div className="form-stack receive-options"><label>Request amount (INR) <small>Optional</small><input inputMode="decimal" value={amount} maxLength={13} onChange={event => setAmount(event.target.value)} placeholder="Any amount" /></label>
         <label>Payment note <small>Optional</small><input value={note} maxLength={140} onChange={event => setNote(event.target.value)} /></label></div>
@@ -151,8 +176,9 @@ export function QrScanner({ onScan, close }: { onScan: (payment: QrPayment) => v
   </div>;
 }
 
-export function PaymentHub({ account, onPay, initialMode = 'pay' }: { account: Account; onPay: (payment?: QrPayment) => void; initialMode?: 'pay' | 'receive' }) {
+export function PaymentHub({ account, onPay, initialMode = 'pay', latestReceived, onReceiveModeChange }: { account: Account; onPay: (payment?: QrPayment) => void; initialMode?: 'pay' | 'receive'; latestReceived?: Entry; onReceiveModeChange?: (receiving: boolean) => void }) {
   const [tab, setTab] = useState<'pay' | 'receive'>(initialMode);
+  useEffect(() => { onReceiveModeChange?.(tab === 'receive'); }, [tab, onReceiveModeChange]);
   const [qrMode, setQrMode] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [nativeScanning, setNativeScanning] = useState(false);
@@ -177,7 +203,7 @@ export function PaymentHub({ account, onPay, initialMode = 'pay' }: { account: A
   const unavailable = account.status !== 'Active' || account.payment_locked;
   return <div className="payments-screen"><div className="page-heading"><p className="eyebrow">PAYMENTS</p><h1>Scan & pay</h1><p>Send and receive money between accounts in this project.</p></div>
     <div className="tab-bar" role="group" aria-label="Payment mode"><button aria-pressed={tab === 'pay'} onClick={() => { setTab('pay'); setScanning(false); setQrMode(false); setError(''); }}>Send money</button><button aria-pressed={tab === 'receive'} onClick={() => { setTab('receive'); setScanning(false); setQrMode(false); setError(''); }}>Receive money</button></div>
-    {tab === 'receive' ? <ReceiveQr account={account} /> : <section className="panel payment-methods" aria-labelledby="payment-method-title">
+    {tab === 'receive' ? <ReceiveQr account={account} latestReceived={latestReceived} /> : <section className="panel payment-methods" aria-labelledby="payment-method-title">
       {qrMode && <button type="button" className="text-link payment-back" onClick={() => { setQrMode(false); setScanning(false); setError(''); }}><ArrowLeft size={17} /> Back to payment methods</button>}
       <div className={qrMode ? 'payment-method-heading' : undefined}><span className="icon-box payment-heading-icon"><QrCode size={26} /></span><div><h2 id="payment-method-title">{qrMode ? 'Pay with QR' : 'Pay another account'}</h2><p className="muted payment-intro">{qrMode ? 'Use an account QR code.' : 'Choose how you want to pay.'}</p></div></div>
       {unavailable ? <p className="feedback error">{account.status !== 'Active' ? 'Your account is frozen. Contact support.' : 'Your outgoing payments are locked. Unlock them in Profile & settings.'}</p> : <>

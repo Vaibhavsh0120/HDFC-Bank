@@ -80,6 +80,7 @@ function CustomerArea({ token, section, detail, end, initialData, onReady }: { t
   const [pending, setPending] = useState<PendingMovement[]>([]);
   const [resuming, setResuming] = useState<PendingMovement>();
   const [initialPayment, setInitialPayment] = useState<QrPayment>();
+  const [receiveMode, setReceiveMode] = useState(false);
   const startPayment = useCallback((payment?: QrPayment) => {
     setResuming(undefined); setInitialPayment(payment); setAction('transfer');
   }, []);
@@ -104,7 +105,11 @@ function CustomerArea({ token, section, detail, end, initialData, onReady }: { t
       throw error;
     }
   }, [token, end]);
-  const { notices, latestAccount, dismiss } = useIncomingTransfers(send, data?.account.number);
+  const { notices, latestReceived, latestAccount, dismiss } = useIncomingTransfers(send, data?.account.number, data?.incoming_cursor);
+  const qrReceiving = section === 'payments' && receiveMode;
+  useEffect(() => {
+    if (qrReceiving || data?.account.transfer_alerts === false) notices.forEach(entry => dismiss(entry.reference));
+  }, [qrReceiving, data?.account.transfer_alerts, notices, dismiss]);
   const lastNotice = useRef('');
 
   useEffect(() => {
@@ -169,7 +174,7 @@ function CustomerArea({ token, section, detail, end, initialData, onReady }: { t
       </header>
       <main className="dashboard">
         <div className="transfer-notices" aria-live="polite">
-          {data?.account.transfer_alerts !== false && notices.map(entry => <TransferNotification key={entry.reference} entry={entry} dismiss={dismiss} />)}
+          {!qrReceiving && data?.account.transfer_alerts !== false && notices.map(entry => <TransferNotification key={entry.reference} entry={entry} dismiss={dismiss} />)}
         </div>
         {exitError && <div className="feedback error form-stack" role="alert"><p>{exitError}</p><button className="btn secondary compact" onClick={() => end(false)}>Sign out on this device</button></div>}
         {loadError && <div className="feedback error flex items-center justify-between gap-3" role="alert"><span>{loadError}</span><button className="btn secondary compact" onClick={() => { setLoadError(''); setRefresh(value => value + 1); }}>Retry</button></div>}
@@ -212,7 +217,7 @@ function CustomerArea({ token, section, detail, end, initialData, onReady }: { t
             <HistoryPanel send={send} onSelect={setSelected} />
           </>}
           {section === 'profile' && <CustomerSettings key={detail || 'menu'} active={detail} account={data.account} send={send} update={account => setData(previous => previous ? { ...previous, account } : previous)} />}
-          {section === 'payments' && <PaymentHub key={detail || 'pay'} initialMode={detail === 'receive' ? 'receive' : 'pay'} account={data.account} onPay={startPayment} />}
+          {section === 'payments' && <PaymentHub key={detail || 'pay'} initialMode={detail === 'receive' ? 'receive' : 'pay'} account={data.account} onPay={startPayment} latestReceived={data.account.transfer_alerts ? latestReceived : undefined} onReceiveModeChange={setReceiveMode} />}
           {section === 'cards' && <VirtualCardPage account={data.account} send={send} />}
           {action && <Modal className={action === 'transfer' ? 'payment-modal' : ''} title={action === 'deposit' ? 'Deposit funds' : action === 'withdraw' ? 'Withdraw funds' : initialPayment && !resuming ? 'Pay with QR' : 'Pay with account number'} close={() => setAction(undefined)}>
             <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} pending={resuming} initial={action === 'transfer' && !resuming ? initialPayment : undefined} onPendingChange={refreshPending} />

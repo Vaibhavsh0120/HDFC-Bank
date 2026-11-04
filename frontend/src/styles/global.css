@@ -224,6 +224,18 @@ input::placeholder { color: #65748b; }
 .receive-panel p { color: var(--muted); font-size: 14px; line-height: 1.6; }
 .receive-code { width: 100%; display: flex; justify-content: center; padding: 14px; }
 .receive-code svg { max-width: 100%; height: auto; }
+.receive-code.receive-flip { width: min(100%, 268px); height: 268px; padding: 0; perspective: 1000px; position: relative; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.receive-flip-inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform .38s ease; }
+.receive-flip.has-payment .receive-flip-inner { transform: rotateY(180deg); }
+.receive-qr-face, .receive-success-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; place-items: center; }
+.receive-success-face { transform: rotateY(180deg); }
+.receive-success { width: 100%; height: 100%; border: 1px solid #b9dec8; border-radius: 20px; background: #eef9f1; color: #205b3b; padding: 20px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.receive-success-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: #217344; color: white; }
+.receive-success strong { font-size: 32px; line-height: 1.2; overflow-wrap: anywhere; }
+.receive-success > span { font-size: 13px; overflow-wrap: anywhere; }
+.receive-success small { font-size: 11px; color: #40624c; }
+@media (prefers-reduced-motion: reduce) { .receive-flip-inner { transition: none; } }
 .receive-number { font-size: 18px; letter-spacing: .08em; font-variant-numeric: tabular-nums; font-weight: 700; }
 .scan-toggle { justify-self: start; min-height: 40px; }
 .scanner { display: grid; gap: 10px; }

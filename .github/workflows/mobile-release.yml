@@ -12,7 +12,7 @@ on:
         description: Release version (MAJOR.MINOR.PATCH)
         type: string
         required: true
-        default: '1.6.1'
+        default: '1.6.2'
       publish:
         description: Publish requested artifacts to GitHub Releases
         type: boolean
@@ -35,8 +35,9 @@ jobs:
     uses: ./.github/workflows/verify.yml
 
   prepare:
-    needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       version-code: ${{ steps.validate.outputs.version-code }}
     steps:
@@ -54,10 +55,27 @@ jobs:
           fi
           IFS=. read -r major minor patch <<< "$VERSION"
           echo "version-code=$((major * 1000000 + minor * 1000 + patch))" >> "$GITHUB_OUTPUT"
+      - name: Reserve release tag before long builds
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists. Choose a new version."
+            exit 1
+          fi
+          if target=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha 2>/dev/null); then
+            test "$target" = "$GITHUB_SHA" || { echo "::error::Tag $tag points to different source."; exit 1; }
+          else
+            gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA"
+          fi
 
   android:
     if: inputs.platform != 'ios'
-    needs: prepare
+    needs: [prepare, verify]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -113,7 +131,7 @@ jobs:
 
   ios:
     if: inputs.platform != 'android'
-    needs: prepare
+    needs: [prepare, verify]
     runs-on: macos-15
     defaults:
       run:
@@ -179,7 +197,7 @@ jobs:
             gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" --jq .body > "$notes"
             printf '\n\nAndroid APKs use the project release key. The iOS IPA is unsigned and requires a compatible signing or LiveContainer setup. Fictional funds only.\n' >> "$notes"
           fi
-          gh release create "$tag" artifacts/* --target "$GITHUB_SHA" --title "HDFC Bank $VERSION" \
+          gh release create "$tag" artifacts/* --verify-tag --title "HDFC Bank $VERSION" \
             --notes-file "$notes"
 
   livecontainer:

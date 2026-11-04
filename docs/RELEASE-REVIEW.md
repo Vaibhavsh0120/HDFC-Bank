@@ -4,6 +4,14 @@
 
 This is an educational banking simulation. The checks below support a trainer demonstration and source handoff; they do not certify a real banking system or guarantee a mark against a rubric that has not been supplied.
 
+## Version 1.6.2 follow-up
+
+The real local API notification walkthrough transfers funds between two accounts, interrupts the initial polling request, and verifies the correct credited amount/sender, QR flip, three-second reset, tap dismissal, unchanged banner on other pages, no replay after reload and reduced-motion behavior. Observed local delivery latency was about 1.2 seconds; hosted latency depends on network and free-host availability. The dashboard's initial incoming cursor prevents the first-poll timing gap. Polling progress survives temporary errors and tab reloads. Notifications remain in-app alerts.
+
+The failed 1.6.0 run had successful Android/iOS builds; publication returned GitHub HTTP 403 while targeting historical workflow source after main advanced. Reserving the tag alone did not repair the old publication command, which still supplied the historical target. New releases reserve their tags early and publish with `--verify-tag` without the redundant historical target. Both platform builds still depend on passing verification. The existing 1.6.0 artifacts can be recovered without rebuilding. Version 1.6.1 was already published successfully.
+
+Both hosted password and PIN recovery requests returned 200 and their separate emails arrived in the maintainer-owned Gmail test alias. Delivered messages passed SPF, DKIM and DMARC; code consumption remains covered by isolated tests.
+
 ## Version 1.6.1 follow-up
 
 The recovery email's section heading is centered alongside its main title. A selectable six-digit code and copy instruction work without email JavaScript; a custom clipboard button is not offered because normal email clients do not support it. The Brevo delivery preview reached Gmail with SPF, DKIM and DMARC passing. Brevo's warning for the configured Gmail sender remains expected: its automatic compliant sender rewrite is active, and authenticating `gmail.com` itself would require control of Google's DNS. No hosting or email plan was upgraded.

@@ -123,7 +123,7 @@ Free hosting may take time to wake after inactivity. The interface reports conne
 
 1. Set the GitHub repository variable `PUBLIC_API_URL` to the deployed HTTPS API origin.
 2. Open **Actions → Mobile release → Run workflow**.
-3. Choose Android, iOS or both, enter a new version (the current release uses `1.6.1`), and choose whether to publish.
+3. Choose Android, iOS or both, enter a new version (the current release uses `1.6.2`), and choose whether to publish.
 4. Download successful artifacts from the workflow run or, when publishing is selected, from GitHub Releases.
 
 Android APKs are signed using the project release key. Configure repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_ALIAS` before building. Keep a private age-encrypted recovery archive outside the repository. Keep it and the age identity safe. The v1.0.0 APK used a different debug key, so it must be uninstalled before installing a release signed with the project key.
@@ -213,3 +213,9 @@ The iOS shell includes safe-area spacing and a portrait fallback for embedded co
 - The local network scripts serve a built frontend separately from development servers. This avoids conflicts when another Astro process is running.
 
 The team must maintain its own contribution history and pull-request reviews. See Django's user and group administration for built-in many-to-many role relationships.
+
+### Incoming payment notifications (1.6.2)
+
+While the account is open, incoming payments are checked every second (every 15 seconds while the page is hidden). Focus, visibility and network reconnection request an immediate check. The dashboard supplies the first cursor, and the current tab remembers progress across reloads and app-lock remounts. Failed requests retain the cursor. These are in-app alerts, not operating-system push notifications for a closed app.
+
+On the receive-QR screen, a verified incoming transfer flips the QR into a card showing the credited amount and sender. It flips back after three seconds or a tap. Other screens keep the existing banner. Incoming-alert preferences apply to both; reduced-motion settings disable the rotation. The manual release now reserves its version tag before the long builds, while builds still require passing verification, so a later push does not force the publication job to create a tag on older workflow source.
