@@ -203,10 +203,10 @@ function CustomerArea({ token, section, end }: { token: string; section: Section
             <Profile account={data.account} />
             <SecurityPin send={send} />
           </>}
-          {section === 'receive' && <>
+          {section === 'receive' && <div className="receive-screen">
             <div className="page-heading"><p className="eyebrow">SAVINGS ACCOUNT</p><h1>Receive funds</h1><p>Share your account details for an internal transfer.</p></div>
             <ReceiveQr number={data.account.number} />
-          </>}
+          </div>}
           {action && <Modal title={action === 'deposit' ? 'Deposit funds' : action === 'withdraw' ? 'Withdraw funds' : 'Transfer funds'} close={() => setAction(undefined)}>
             <MovementForm kind={action} account={data.account} send={send} onReceipt={saveReceipt} close={() => setAction(undefined)} pending={resuming} onPendingChange={refreshPending} />
           </Modal>}
