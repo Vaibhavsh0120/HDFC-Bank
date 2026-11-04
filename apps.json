@@ -18,6 +18,15 @@
       "tintColor": "#132A57",
       "versions": [
         {
+          "version": "1.5.1",
+          "buildVersion": "1005001",
+          "date": "2026-11-04T12:41:21Z",
+          "localizedDescription": "- Fix successful Face ID/fingerprint authentication leaving the app locked when the native container still reports an inactive state.\n- Distinguish iOS Face ID interruptions from genuine backgrounding. Keep cancellation locked, support retry, and ignore late authentication results after the app enters the background.\n- Validate saved native sessions before device authentication; expired sessions return to sign-in and connection failures offer retry.\n- Offer device-unlock setup only after the first successful sign-in has loaded the dashboard. Never offer setup on logged-out screens or merely because a token was restored.\n- Disable device unlock after logout, session expiry or signing in again. Remember the setup choice so later logins do not repeatedly show the offer; it can be enabled in Security settings.\n- Center the content-sized setup dialog within phone safe areas, including landscape.\n- Make the native Google sign-in button easier to see with a full-width outline, Google icon and larger tap target.\n- Show the dashboard balance and account number by default; the eye button hides or reveals both. Virtual-card details remain masked by default.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.5.1/HDFC-Bank-1.5.1-ios-unsigned.ipa",
+          "size": 5762344,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "1.5.0",
           "buildVersion": "1005000",
           "date": "2026-11-04T11:50:01Z",
@@ -90,11 +99,11 @@
           "minOSVersion": "15.0"
         }
       ],
-      "version": "1.5.0",
-      "versionDate": "2026-11-04T11:50:01Z",
-      "versionDescription": "- Open saved sessions without briefly showing the public landing page. Show a neutral startup screen and dashboard skeleton while loading.\n- Add an optional app-only device lock using Face ID, fingerprint or the phone's screen lock. Offer setup after the first app login and enable/disable it in Security settings. Store native sessions in local secure storage; lock protected accounts on backgrounding and at the next launch. Account sign-in remains the recovery path.\n- Hide the dashboard balance and account number by default; reveal both with one eye button.\n- Hide virtual-card numbers and CVVs by default, with a separate eye button for card details.\n- Choose VISA, RuPay or Mastercard for randomly generated, persistent numeric demo cards. Freeze/unfreeze a card or replace its details and network with transaction-PIN confirmation.\n- Keep settings in a two-column tile grid on mobile.\n- Add a branded 404 screen for missing pages and unknown in-app routes.\n- Remove the repeated footer notice throughout the website and app.\n- Add an AltStore-compatible LiveContainer source with published iOS version history. Manual iOS releases refresh the source automatically.\n- Add version-specific notes for previous releases and reuse these notes in the manual release workflow.\n\nDevice unlock requires a phone screen lock and a native app build. It does not change website sign-in or replace the existing transaction PIN. Device hardware and LiveContainer behavior require testing on the target phone.",
-      "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.5.0/HDFC-Bank-1.5.0-ios-unsigned.ipa",
-      "size": 5723923,
+      "version": "1.5.1",
+      "versionDate": "2026-11-04T12:41:21Z",
+      "versionDescription": "- Fix successful Face ID/fingerprint authentication leaving the app locked when the native container still reports an inactive state.\n- Distinguish iOS Face ID interruptions from genuine backgrounding. Keep cancellation locked, support retry, and ignore late authentication results after the app enters the background.\n- Validate saved native sessions before device authentication; expired sessions return to sign-in and connection failures offer retry.\n- Offer device-unlock setup only after the first successful sign-in has loaded the dashboard. Never offer setup on logged-out screens or merely because a token was restored.\n- Disable device unlock after logout, session expiry or signing in again. Remember the setup choice so later logins do not repeatedly show the offer; it can be enabled in Security settings.\n- Center the content-sized setup dialog within phone safe areas, including landscape.\n- Make the native Google sign-in button easier to see with a full-width outline, Google icon and larger tap target.\n- Show the dashboard balance and account number by default; the eye button hides or reveals both. Virtual-card details remain masked by default.",
+      "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.5.1/HDFC-Bank-1.5.1-ios-unsigned.ipa",
+      "size": 5762344,
       "minOSVersion": "15.0",
       "appPermissions": {
         "entitlements": [],
