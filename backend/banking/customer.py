@@ -229,6 +229,8 @@ def password_change(request):
             return Response({'detail': 'Choose a password different from the current password.'}, status=400)
         user.set_password(data['new_password'])
         user.save(update_fields=['password'])
+        AccessSession.objects.filter(user=user).exclude(pk=request.auth.pk).delete()
+        EmailChallenge.objects.filter(user=user, purpose='password_reset').delete()
     return Response({'detail': 'Password changed.'})
 
 

@@ -156,6 +156,25 @@ class CustomerFlowTests(APITestCase):
         self.assertEqual(self.client.post('/api/auth/password/change/', {'current_password': self.password, 'new_password': 'New!OceanBright28'}).status_code, 200)
         self.assertEqual(self.client.get('/api/dashboard/').status_code, 200)
 
+    def test_password_change_revokes_other_sessions_and_pending_password_codes(self):
+        other_token = issue_token(self.user)
+        self.client.post('/api/auth/password/reset/request/', {'email': self.user.email})
+        code = self.code()
+        self.client.post('/api/security/pin/reset/request/')
+        result = self.client.post('/api/auth/password/change/', {
+            'current_password': self.password, 'new_password': 'New!OceanBright28',
+        })
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(self.client.get('/api/dashboard/').status_code, 200)
+        self.assertEqual(AccessSession.objects.filter(user=self.user).count(), 1)
+        self.assertTrue(EmailChallenge.objects.filter(user=self.user, purpose='pin_reset').exists())
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + other_token)
+        self.assertEqual(self.client.get('/api/dashboard/').status_code, 401)
+        self.client.credentials()
+        self.assertEqual(self.client.post('/api/auth/password/reset/confirm/', {
+            'email': self.user.email, 'code': code, 'password': 'Another!OceanBright29',
+        }).status_code, 400)
+
     def test_nominee_crud_minor_guardian_and_isolation(self):
         self.assertIsNone(self.client.get('/api/nominee/').data['nominee'])
         data = {'name': 'Child', 'relationship': 'Child', 'date_of_birth': str(timezone.localdate().replace(year=timezone.localdate().year - 10)), 'address': 'New Delhi', 'pin': '1234'}
