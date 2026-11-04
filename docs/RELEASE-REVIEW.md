@@ -4,6 +4,10 @@
 
 This is an educational banking simulation. The checks below support a trainer demonstration and source handoff; they do not certify a real banking system or guarantee a mark against a rubric that has not been supplied.
 
+## Version 1.6.1 follow-up
+
+The recovery email's section heading is centered alongside its main title. A selectable six-digit code and copy instruction work without email JavaScript; a custom clipboard button is not offered because normal email clients do not support it. The Brevo delivery preview reached Gmail with SPF, DKIM and DMARC passing. Brevo's warning for the configured Gmail sender remains expected: its automatic compliant sender rewrite is active, and authenticating `gmail.com` itself would require control of Google's DNS. No hosting or email plan was upgraded.
+
 ## Version 1.6.0 follow-up
 
 Profile menus now use the dashboard width (three columns on large desktops, two on phones). Security has a two-column desktop layout. The redesigned card uses standard debit-card proportions, a masked number/CVV, clear status and separate PIN-protected controls. Five-width browser checks cover 320, 390, 768, 1440 and 1728 pixels without horizontal overflow.

@@ -123,7 +123,7 @@ Free hosting may take time to wake after inactivity. The interface reports conne
 
 1. Set the GitHub repository variable `PUBLIC_API_URL` to the deployed HTTPS API origin.
 2. Open **Actions → Mobile release → Run workflow**.
-3. Choose Android, iOS or both, enter a new version (the current release uses `1.6.0`), and choose whether to publish.
+3. Choose Android, iOS or both, enter a new version (the current release uses `1.6.1`), and choose whether to publish.
 4. Download successful artifacts from the workflow run or, when publishing is selected, from GitHub Releases.
 
 Android APKs are signed using the project release key. Configure repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_ALIAS` before building. Keep a private age-encrypted recovery archive outside the repository. Keep it and the age identity safe. The v1.0.0 APK used a different debug key, so it must be uninstalled before installing a release signed with the project key.

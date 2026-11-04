@@ -2,6 +2,11 @@
 
 All money, accounts and virtual cards in this project are fictional. Android 1.1.0 and later use the project release signing key; 1.0.0 used a debug key. iOS IPAs are unsigned and need a compatible signing/container setup.
 
+## 1.6.1 — 2026-11-04
+
+- Center the “ACCOUNT RECOVERY” heading in password and transaction-PIN reset emails.
+- Add a clear instruction for copying the selectable code. Gmail's own copy-code control remains client-controlled; no nonfunctional email button is added.
+
 ## 1.6.0 — 2026-11-04
 
 - Use the available desktop width for Profile & settings, with three menu columns on large screens and two on phones.
