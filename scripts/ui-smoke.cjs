@@ -6,7 +6,7 @@ async (page) => {
   const nonce = Date.now();
   const password = 'Review!Ocean427';
   const email = `review-${nonce}@example.test`;
-  const screenshots = 'D:/_Root/Downloads/Bank/artifacts';
+  const screenshots = 'artifacts';
   const checked = [];
   const assert = (condition, message) => { if (!condition) throw new Error(message); };
   const go = async (hash, title) => { await page.goto(origin + '/#' + hash); await page.getByRole('heading', { name: title, exact: true, level: 1 }).waitFor(); };
@@ -59,6 +59,30 @@ async (page) => {
   await receiver.getByText('₹75.50', { exact: true }).first().waitFor();
   await receiverContext.close();
   checked.push('QR image scan → verified recipient → new PIN → payment → receiver balance');
+
+  await go('overview', 'Welcome, Alice');
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByLabel('Amount (INR)').fill('10');
+  await page.getByRole('button', { name: 'Review withdrawal' }).click();
+  await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
+  // Commit the withdrawal at the API, then simulate losing its response.
+  await page.route(api + 'movements/', async route => {
+    const response = await route.fetch();
+    assert(response.status() === 201, 'Interrupted withdrawal was not committed');
+    await route.abort('failed');
+  }, { times: 1 });
+  await page.getByRole('button', { name: 'Confirm withdrawal' }).click();
+  await page.getByRole('button', { name: 'Retry confirmation' }).waitFor();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: /Review withdraw/ }).click();
+  await page.getByLabel('Transaction PIN', { exact: true }).fill('1234');
+  await page.getByRole('button', { name: 'Retry confirmation' }).click();
+  await page.getByRole('heading', { name: 'Withdrawal completed' }).waitFor();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByText('₹914.50', { exact: true }).waitFor();
+  assert(await page.getByRole('region', { name: 'Pending transactions' }).count() === 0, 'Completed request was still pending');
+  checked.push('Lost withdrawal response → reload → same-request retry → no duplicate debit');
 
   await go('profile/details', 'Personal details');
   await page.getByRole('button', { name: 'Edit personal details' }).click();

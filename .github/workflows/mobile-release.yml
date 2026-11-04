@@ -30,7 +30,11 @@ env:
   PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.PUBLIC_GOOGLE_IOS_CLIENT_ID || '722118387236-tu1h5mp9rteul43rl8i3f19d2moaassj.apps.googleusercontent.com' }}
 
 jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
   prepare:
+    needs: verify
     runs-on: ubuntu-latest
     outputs:
       version-code: ${{ steps.validate.outputs.version-code }}
