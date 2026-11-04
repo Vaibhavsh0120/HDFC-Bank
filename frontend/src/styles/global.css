@@ -215,7 +215,9 @@ input::placeholder { color: #65748b; }
 .receipt-heading { display: flex; align-items: center; gap: 9px; }
 .receipt-heading h3 { font-size: 18px; }
 .receipt-heading .icon-box { background: #e8f7f0; color: var(--green); }
-.receive-panel { max-width: 560px; padding: 24px; display: grid; justify-items: start; gap: 14px; }
+.receive-screen { width: min(100%, 560px); margin-inline: auto; }
+.receive-screen .page-heading { text-align: center; }
+.receive-panel { width: 100%; padding: 24px; display: grid; justify-items: center; gap: 14px; text-align: center; }
 .receive-panel h2 { font-size: 19px; }
 .receive-panel p { color: var(--muted); font-size: 14px; line-height: 1.6; }
 .receive-code { width: 100%; display: flex; justify-content: center; padding: 14px; }
