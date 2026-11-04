@@ -4,6 +4,16 @@
 
 This is an educational banking simulation. The checks below support a trainer demonstration and source handoff; they do not certify a real banking system or guarantee a mark against a rubric that has not been supplied.
 
+## Version 1.5.0 follow-up
+
+The [changelog](../CHANGELOG.md) records all seven earlier versions and the 1.5.0 changes. Existing GitHub release bodies were updated with their own tag-range changes. The [LiveContainer source](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/livecontainer/apps.json) was initialized from the seven published iOS IPAs; the mobile release workflow now refreshes it after successful iOS publication. The source is maintained on its own branch and the workflow uses authored notes or GitHub's generated commit notes for future versions.
+
+Local checks for this update: 56 Django tests (54 passed, 2 MySQL-only skips), migration drift clean, seven device-unlock policy tests, three release/source tests, zero Astro errors/warnings/hints, successful production build, zero npm audit vulnerabilities and actionlint success for all three workflows. The account/payment smoke check and the new v1.5.0 UI check passed. Five-width settings measurements, startup DOM observation, card masking/network/replacement, 404 behavior and native-bridge integration were exercised. Android debug compilation passed with the new native plugins; no physical biometric or iOS runtime claim is made.
+
+Device unlock is optional and app-only; its first-login offer remembers either choice. Native bearer sessions use local Keychain/encrypted storage and migrate away from WebView local storage. An enabled lock removes account UI on backgrounding, and cancellation leaves it locked. A fresh server-authenticated login is the recovery route. This is a local interface lock with OS authentication, not a hardware-bound server authorization scheme. Transaction PIN and server validation remain separate controls.
+
+The original 54-test MySQL review below is historical evidence. The manual 1.5.0 release must pass the expanded MySQL verification gate before publishing either mobile package; its hosted outcome is verified separately after push. Face ID/fingerprint/passcode behavior, app-switcher snapshots and keychain persistence must still be confirmed on the target phone/container.
+
 ## Findings and fixes
 
 | ID | Severity | Finding | Resolution and evidence |
@@ -65,7 +75,7 @@ Both scripts create fictional users against loopback port 8011 and write outputs
 
 - Funds, internal account transfers, cards and nomination records are fictional. The app does not implement external payment networks, KYC, card authorization or bank settlement.
 - Registration and contact changes do not verify email ownership. Deposits are intentionally available for demonstration. There is no configured daily transfer limit.
-- Bearer sessions are stored in browser/app local storage for up to 30 days. That is a deliberate convenience tradeoff: script access to the origin can expose a token. PIN protection and HTTPS are additional controls, not a replacement for preventing script injection.
+- Browser bearer sessions are stored in browser storage for up to 30 days; since 1.5.0, native sessions use local Keychain/encrypted storage. Script access inside an unlocked app remains a risk. Device unlock, PIN protection and HTTPS do not replace preventing script injection.
 - Request throttling uses the default per-process cache; it is not a distributed abuse-prevention system. Incoming alerts use polling while the app is open, not guaranteed background push delivery.
 - Production security checks retain Django's two advisory notices about HSTS subdomains/preload. Those settings were not enabled blindly for a shared hosting domain; HTTPS redirects, secure cookies and one-year HSTS are already configured for production.
 

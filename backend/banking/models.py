@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import IntegrityError, models, transaction
 from django.db.models import F, Q
+from django.utils import timezone
 
 
 def generate_account_number():
@@ -136,10 +137,25 @@ class Beneficiary(models.Model):
 
 
 class VirtualCard(models.Model):
+    class Network(models.TextChoices):
+        VISA = 'visa', 'VISA'
+        RUPAY = 'rupay', 'RuPay'
+        MASTERCARD = 'mastercard', 'Mastercard'
+
     account = models.OneToOneField(Account, on_delete=models.CASCADE)
     identifier = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    network = models.CharField(max_length=10, choices=Network.choices, default=Network.VISA)
+    number = models.CharField(max_length=16, unique=True, editable=False)
+    security_code = models.CharField(max_length=3, editable=False)
     frozen = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    issued_at = models.DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        if not self.number:
+            from .cards import card_details
+            self.number, self.security_code = card_details(self.network)
+        super().save(*args, **kwargs)
 
 
 class SupportRequest(models.Model):

@@ -9,9 +9,10 @@ on:
         options: [both, android, ios]
         default: both
       version:
-        description: Release version (e.g. 1.0.0)
+        description: Release version (MAJOR.MINOR.PATCH)
         type: string
         required: true
+        default: '1.5.0'
       publish:
         description: Publish requested artifacts to GitHub Releases
         type: boolean
@@ -155,6 +156,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -170,5 +172,19 @@ jobs:
             echo "::error::Release $tag already exists. Choose a new version."
             exit 1
           fi
+          notes="$RUNNER_TEMP/release-notes.md"
+          if python3 scripts/release_tools.py notes --version "$VERSION" --output "$notes"; then
+            echo "Using version-specific CHANGELOG notes."
+          else
+            gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" --jq .body > "$notes"
+            printf '\n\nAndroid APKs use the project release key. The iOS IPA is unsigned and requires a compatible signing or LiveContainer setup. Fictional funds only.\n' >> "$notes"
+          fi
           gh release create "$tag" artifacts/* --target "$GITHUB_SHA" --title "HDFC Bank $VERSION" \
-            --notes 'Android APKs are signed with the project release key. The iOS device IPA is unsigned and requires Apple signing and provisioning before installation. See the README for setup.'
+            --notes-file "$notes"
+
+  livecontainer:
+    needs: publish
+    if: inputs.publish && inputs.platform != 'android'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/livecontainer-source.yml

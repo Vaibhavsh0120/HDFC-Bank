@@ -64,7 +64,7 @@ erDiagram
 | `banking_emailchallenge` | Hashed password/PIN recovery codes, purpose, expiry, email snapshot and failed attempts. |
 | `banking_nominee` | Optional one-to-one nominee record, with guardian details for minors. |
 | `banking_beneficiary` | Saved sender/recipient pair and nickname. The pair is unique. |
-| `banking_virtualcard` | Optional one-to-one demonstration card identifier and freeze status. |
+| `banking_virtualcard` | Optional one-to-one demo card: identifier, numeric number, security code, network, issue date and freeze status. |
 | `banking_supportrequest` | Account-scoped issue, reference, status and administrator response. |
 
 **One-to-one** means an account belongs to one user, and a user has one account. **Foreign key** means a column points to another table's row. An entry has an initiator and, for a transfer, a recipient. Django's built-in user/group permission tables use many-to-many relationships; the custom banking models do not currently define their own many-to-many field.
@@ -125,7 +125,7 @@ All paths below are relative to the API origin. Protected requests use `Authoriz
 | `GET, PATCH /api/profile/` | Reads/updates contact details and preferences; lock changes require a PIN checked against the locked row. |
 | `GET, POST, DELETE /api/nominee/` | Reads or replaces/removes the account's nominee. Writes require a PIN. |
 | `GET, POST, DELETE /api/beneficiaries/` | Lists, saves or removes recipients belonging to this account. |
-| `GET, POST, PATCH /api/card/` | Reads, creates or freezes/unfreezes a demo card. Writes require a PIN. |
+| `GET, POST, PATCH /api/card/` | Reads/creates a demo card, freezes/unfreezes it, or replaces number/CVV and network. Writes require a transaction PIN. |
 | `GET, POST /api/support/` | Reads the latest 30 support requests or submits a new request. |
 
 Typical responses include `200` for successful reads, `201` for a new movement, `400` for invalid input, `401` for an invalid session, `403` when a PIN is required, `409` for a conflicting request ID and `429` for a locked PIN or throttling. Inspect the actual endpoint for its precise response. For Postman, first register or sign in, copy your own returned token into the Bearer Token authorization field, then call a protected endpoint.

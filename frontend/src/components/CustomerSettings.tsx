@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode, type SubmitEvent } from 'react';
-import { ArrowRight, CreditCard, HelpCircle, LockKeyhole, Settings, ShieldCheck, UserRound, Users } from 'lucide-react';
+import { ArrowRight, CreditCard, Eye, EyeOff, HelpCircle, LockKeyhole, RefreshCw, Settings, ShieldCheck, UserRound, Users } from 'lucide-react';
 import { message, timestamp, type Account } from '../lib/banking';
 import type { AuthedRequest } from './Transactions';
 import { SecurityPin } from './SecurityPin';
+import { DeviceUnlockSettings } from './DeviceUnlock';
 
 function Feedback({ error, success }: { error: string; success?: string }) {
   return <>{error && <p className="feedback error" role="alert">{error}</p>}{success && <p className="positive" role="status">{success}</p>}</>;
@@ -171,7 +172,7 @@ export function CustomerSettings(props: SettingsProps & { active?: string }) {
   let panel: ReactNode;
   switch (active?.id) {
     case 'details': panel = <PersonalDetails {...props} />; break;
-    case 'security': panel = <><SecurityPin key={pinVersion} send={props.send} /><PinRecovery send={props.send} onSaved={() => setPinVersion(value => value + 1)} /><PasswordSettings {...props} /></>; break;
+    case 'security': panel = <><DeviceUnlockSettings /><SecurityPin key={pinVersion} send={props.send} /><PinRecovery send={props.send} onSaved={() => setPinVersion(value => value + 1)} /><PasswordSettings {...props} /></>; break;
     case 'nominee': panel = <Nomination {...props} />; break;
     case 'recipients': panel = <SavedRecipients {...props} />; break;
     case 'preferences': panel = <Preferences {...props} />; break;
@@ -180,21 +181,50 @@ export function CustomerSettings(props: SettingsProps & { active?: string }) {
   return <><div className="page-heading"><p className="eyebrow">YOUR ACCOUNT</p><h1>{active?.title || 'Profile & settings'}</h1><p>{active ? active.description : 'Manage your details, security and account services.'}</p></div>{active ? <><a className="back-link" href="#profile">Back to Profile & settings</a><div className="settings-content">{panel}</div></> : <><section className="panel settings-panel profile-person"><span className="avatar big">{props.account.name.slice(0, 1).toUpperCase()}</span><div><h2>{props.account.name}</h2><p>{props.account.email}</p></div></section><div className="settings-menu">{sections.map(({ id, title, description, icon: Icon }) => <a className="panel settings-link" href={'#profile/' + id} key={id}><span className="icon-box"><Icon size={22} /></span><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={18} /></a>)}</div></>}</>;
 }
 
-type Card = { identifier: string; last_four: string; frozen: boolean; expires: string; created_at: string };
+type Network = 'visa' | 'rupay' | 'mastercard';
+type Card = { identifier: string; last_four: string; number: string; security_code: string; network: Network; frozen: boolean; expires: string; created_at: string };
+const networks: Record<Network, string> = { visa: 'VISA', rupay: 'RuPay', mastercard: 'Mastercard' };
 export function VirtualCardPage({ send, account }: { send: AuthedRequest; account: Account }) {
   const remote = useRemote<{ card: Card | null }>(send, 'card/');
-  const [changing, setChanging] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [success, setSuccess] = useState('');
+  const [changing, setChanging] = useState<'create' | 'freeze' | 'replace'>();
+  const [network, setNetwork] = useState<Network>('visa');
+  const [revealed, setRevealed] = useState(false);
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [success, setSuccess] = useState('');
   async function save(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(''); setSuccess('');
     const data = Object.fromEntries(new FormData(event.currentTarget));
-    try { const result = await send<{ card: Card }>('card/', { pin: data.pin, ...(remote.data?.card && { frozen: !remote.data.card.frozen }) }, remote.data?.card ? 'PATCH' : undefined); remote.setData(result); setChanging(false); setSuccess(result.card.frozen ? 'Card frozen.' : 'Card active.'); }
+    try {
+      const body = { pin: data.pin, ...(changing === 'freeze' ? { frozen: !remote.data?.card?.frozen } : { network }), ...(changing === 'replace' ? { action: 'replace' } : {}) };
+      const result = await send<{ card: Card }>('card/', body, changing === 'create' ? undefined : 'PATCH');
+      remote.setData(result); setChanging(undefined); setRevealed(false);
+      setSuccess(changing === 'replace' ? 'Card replaced. Your previous card number is no longer active.' : changing === 'create' ? 'Virtual card created.' : result.card.frozen ? 'Card frozen.' : 'Card active.');
+    }
     catch (error) { setError(message(error)); } finally { setBusy(false); }
   }
   const card = remote.data?.card;
+  function manage(action: 'create' | 'freeze' | 'replace') {
+    setChanging(action); setNetwork(card?.network || 'visa'); setRevealed(false); setError(''); setSuccess('');
+  }
   return <><div className="page-heading"><p className="eyebrow">CARDS</p><h1>Virtual debit card</h1><p>Manage your project’s virtual card.</p></div><div className="card-page">
     {!remote.data ? <section className="panel settings-panel"><Loading error={remote.error} retry={remote.retry} /></section> : <>
-      {card ? <section className={'virtual-card ' + (card.frozen ? 'is-frozen' : '')} aria-label="Demo virtual debit card"><div className="button-row"><strong>HDFC Bank</strong><CreditCard size={26} /></div><span>{card.frozen ? 'Frozen' : account.status !== 'Active' ? 'Account frozen' : 'Active'} · Demo card</span><strong className="virtual-number">DEMO •••• •••• {card.last_four}</strong><div className="virtual-bottom"><div><small>Cardholder</small><strong>{account.name}</strong></div><div><small>Valid until</small><strong>{card.expires}</strong></div></div></section> : <section className="panel settings-panel form-stack"><span className="icon-box"><CreditCard size={24} /></span><h2>No virtual card yet</h2><p>Create a demo card linked to your savings account.</p></section>}
-      <section className="panel settings-panel form-stack"><h2>{card ? 'Card controls' : 'Create virtual card'}</h2><p className="muted">This demonstration card cannot make merchant, ATM or online payments. Freezing affects the card record; it does not lock account transfers.</p>{account.status !== 'Active' ? <p className="feedback error">Your account is frozen. Contact support for card changes.</p> : changing ? <form className="form-stack" onSubmit={save}><fieldset disabled={busy} className="form-stack"><label>Transaction PIN<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{4,6}" autoComplete="off" maxLength={6} required /></label><div className="button-row"><button className="btn primary">{busy ? 'Saving…' : !card ? 'Confirm card creation' : card.frozen ? 'Confirm unfreeze' : 'Confirm freeze'}</button><button className="btn secondary" type="button" onClick={() => setChanging(false)}>Cancel</button></div></fieldset></form> : <button className="btn secondary" onClick={() => { setChanging(true); setError(''); }}>{!card ? 'Create virtual card' : card.frozen ? 'Unfreeze card' : 'Freeze card'} <LockKeyhole size={17} /></button>}<Feedback error={error} success={success} /><a className="text-link" href="#profile/security">Manage transaction PIN</a><a className="text-link" href="#profile/help">Report a card problem</a></section>
+      {card ? <section className={'virtual-card ' + (card.frozen ? 'is-frozen' : '')} aria-label="Demo virtual debit card">
+        <div className="button-row"><strong>HDFC Bank</strong><CreditCard size={26} /></div>
+        <div className="virtual-status"><span>{card.frozen ? 'Frozen' : account.status !== 'Active' ? 'Account frozen' : 'Active'} · Demo card</span><strong className={'card-network ' + card.network}>{networks[card.network]}</strong></div>
+        <div className="virtual-number-row"><strong className="virtual-number">{revealed ? card.number.match(/.{1,4}/g)?.join(' ') : '•••• •••• •••• ' + card.last_four}</strong>
+          <button className="card-button" aria-label={revealed ? 'Hide card details' : 'Show card details'} aria-pressed={revealed} onClick={() => setRevealed(!revealed)}>{revealed ? <EyeOff size={19} /> : <Eye size={19} />}</button></div>
+        <div className="virtual-bottom"><div><small>Cardholder</small><strong>{account.name}</strong></div><div><small>Valid until</small><strong>{card.expires}</strong></div><div><small>CVV</small><strong>{revealed ? card.security_code : '•••'}</strong></div></div>
+      </section> : <section className="panel settings-panel form-stack"><span className="icon-box"><CreditCard size={24} /></span><h2>No virtual card yet</h2><p>Create a demo card linked to your savings account.</p></section>}
+      <section className="panel settings-panel form-stack"><h2>{changing === 'replace' ? 'Replace virtual card' : card ? 'Manage card' : 'Create virtual card'}</h2>
+        <p className="muted">This demo card cannot make purchases or ATM withdrawals. Freezing it does not lock account transfers.</p>
+        {account.status !== 'Active' ? <p className="feedback error">Your account is frozen. Contact support for card changes.</p> : changing ? <form className="form-stack" onSubmit={save}><fieldset disabled={busy} className="form-stack">
+          {changing !== 'freeze' && <label>Card network<select name="network" value={network} onChange={event => setNetwork(event.target.value as Network)}>{Object.entries(networks).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
+          {changing === 'replace' && <p className="feedback">Your old number and CVV will be replaced. The new card will keep your current freeze setting.</p>}
+          <label>Transaction PIN<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{4,6}" autoComplete="off" maxLength={6} required /></label>
+          <div className="button-row"><button className="btn primary">{busy ? 'Saving…' : changing === 'create' ? 'Confirm card creation' : changing === 'replace' ? 'Replace card' : card?.frozen ? 'Confirm unfreeze' : 'Confirm freeze'}</button><button className="btn secondary" type="button" onClick={() => { setChanging(undefined); setError(''); }}>Cancel</button></div>
+        </fieldset></form> : <div className="form-stack"><button className="btn secondary" onClick={() => manage(card ? 'freeze' : 'create')}><LockKeyhole size={17} />{!card ? 'Create virtual card' : card.frozen ? 'Unfreeze card' : 'Freeze card'}</button>
+          {card && <button className="btn secondary" onClick={() => manage('replace')}><RefreshCw size={17} />Replace card or change network</button>}</div>}
+        <Feedback error={error} success={success} /><a className="text-link" href="#profile/security">Manage transaction PIN</a><a className="text-link" href="#profile/help">Report a card problem</a>
+      </section>
     </>}
   </div></>;
 }

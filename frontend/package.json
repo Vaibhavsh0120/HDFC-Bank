@@ -1,5 +1,6 @@
 {
   "name": "hdfc-bank",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,13 +10,17 @@
     "dev": "astro dev",
     "build": "astro build",
     "check": "astro check",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "preview": "astro preview",
     "native:android": "node scripts/native.mjs android",
     "native:ios": "node scripts/native.mjs ios"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^9.1.2",
+    "@aparajita/capacitor-secure-storage": "^7.1.2",
     "@astrojs/react": "^7.1.2",
     "@capacitor/android": "~7.6.0",
+    "@capacitor/app": "^7.1.2",
     "@capacitor/barcode-scanner": "^2.2.6",
     "@capacitor/core": "~7.6.0",
     "@capacitor/filesystem": "^7.1.9",

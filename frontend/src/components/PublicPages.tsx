@@ -108,12 +108,8 @@ function GoogleSignIn({ registration, onSession }: { registration: boolean; onSe
   </div>;
 }
 
-export function Brand() {
-  return <a className="brand" href="#home"><img src="/mark.svg" width="38" height="38" alt="" /><span>HDFC Bank</span></a>;
-}
-
-export function Notice() {
-  return <p className="notice">Fictional accounts · Virtual funds · Independent student project · <a href="/privacy/">Privacy</a></p>;
+export function Brand({ href = '#home' }: { href?: string }) {
+  return <a className="brand" href={href}><img src="/mark.svg" width="38" height="38" alt="" /><span>HDFC Bank</span></a>;
 }
 
 export function PublicHeader() {
@@ -185,7 +181,6 @@ export function Landing() {
         </div>
       </section>
     </main>
-    <footer className="site-footer"><div className="wrap footer-inner"><Brand /><Notice /></div></footer>
   </>;
 }
 
@@ -244,6 +239,5 @@ export function AuthPage({ mode, onSession }: { mode: 'login' | 'register'; onSe
         <p className="auth-switch">{registration ? 'Already have an account?' : 'New to HDFC Bank?'} <a href={registration ? '#login' : '#register'}>{registration ? 'Sign in' : 'Open an account'}</a></p>
       </section>
     </main>
-    <footer className="site-footer"><div className="wrap footer-inner"><Brand /><Notice /></div></footer>
   </>;
 }
