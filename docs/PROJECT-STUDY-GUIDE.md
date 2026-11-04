@@ -44,8 +44,14 @@ erDiagram
     AUTH_USER ||--|| BANKING_ACCOUNT : owns
     AUTH_USER ||--o{ BANKING_ACCESSSESSION : signs_in_with
     AUTH_USER ||--o| BANKING_GOOGLEIDENTITY : may_have
+    AUTH_USER ||--o{ BANKING_EMAILCHALLENGE : recovers_with
     BANKING_ACCOUNT ||--o{ BANKING_ENTRY : initiates
     BANKING_ACCOUNT o|--o{ BANKING_ENTRY : receives
+    BANKING_ACCOUNT ||--o| BANKING_NOMINEE : nominates
+    BANKING_ACCOUNT ||--o{ BANKING_BENEFICIARY : saves
+    BANKING_ACCOUNT ||--o{ BANKING_BENEFICIARY : is_saved_by
+    BANKING_ACCOUNT ||--o| BANKING_VIRTUALCARD : issues
+    BANKING_ACCOUNT ||--o{ BANKING_SUPPORTREQUEST : requests_help
 ```
 
 | Table | Key information |
@@ -55,6 +61,11 @@ erDiagram
 | `banking_entry` | Each deposit, withdrawal or transfer. `initiator_id` and optional `recipient_id` point to accounts. A request ID prevents the same instruction being applied twice. |
 | `banking_accesssession` | Hash of a bearer token, its user and expiry time. The raw token is not stored in this table. |
 | `banking_googleidentity` | A hashed Google subject and its linked user. |
+| `banking_emailchallenge` | Hashed password/PIN recovery codes, purpose, expiry, email snapshot and failed attempts. |
+| `banking_nominee` | Optional one-to-one nominee record, with guardian details for minors. |
+| `banking_beneficiary` | Saved sender/recipient pair and nickname. The pair is unique. |
+| `banking_virtualcard` | Optional one-to-one demonstration card identifier and freeze status. |
+| `banking_supportrequest` | Account-scoped issue, reference, status and administrator response. |
 
 **One-to-one** means an account belongs to one user, and a user has one account. **Foreign key** means a column points to another table's row. An entry has an initiator and, for a transfer, a recipient. Django's built-in user/group permission tables use many-to-many relationships; the custom banking models do not currently define their own many-to-many field.
 
@@ -105,6 +116,17 @@ All paths below are relative to the API origin. Protected requests use `Authoriz
 | `POST /api/movements/` | Deposits, withdraws or transfers an amount. |
 | `GET /api/history/` | Returns account activity with supported search/filter options. |
 | `GET /api/activity/updates/` | Polls for incoming transfers using a cursor. |
+| `POST /api/auth/logout/` | Revokes the current bearer session. |
+| `POST /api/auth/password/change/` | Changes the password, keeps this session and revokes other bearer sessions and pending password-reset codes. |
+| `POST /api/auth/password/reset/request/` | Requests an emailed recovery code without confirming whether an account exists. |
+| `POST /api/auth/password/reset/confirm/` | Consumes a valid code, changes the password and revokes all bearer sessions. |
+| `POST /api/security/pin/reset/request/` | Emails a PIN recovery code to the signed-in customer's address. |
+| `POST /api/security/pin/reset/confirm/` | Consumes that code, changes the PIN and clears its attempt lock. |
+| `GET, PATCH /api/profile/` | Reads/updates contact details and preferences; lock changes require a PIN checked against the locked row. |
+| `GET, POST, DELETE /api/nominee/` | Reads or replaces/removes the account's nominee. Writes require a PIN. |
+| `GET, POST, DELETE /api/beneficiaries/` | Lists, saves or removes recipients belonging to this account. |
+| `GET, POST, PATCH /api/card/` | Reads, creates or freezes/unfreezes a demo card. Writes require a PIN. |
+| `GET, POST /api/support/` | Reads the latest 30 support requests or submits a new request. |
 
 Typical responses include `200` for successful reads, `201` for a new movement, `400` for invalid input, `401` for an invalid session, `403` when a PIN is required, `409` for a conflicting request ID and `429` for a locked PIN or throttling. Inspect the actual endpoint for its precise response. For Postman, first register or sign in, copy your own returned token into the Bearer Token authorization field, then call a protected endpoint.
 
@@ -164,6 +186,26 @@ Django migrations describe schema changes, and the ORM turns model operations in
 8. **How do local and hosted data differ?** The local script connects to MySQL on this computer. The deployed API connects to Aiven MySQL. They are separate databases.
 
 ## Before the college review
+
+### A seven-minute demonstration
+
+Use the isolated demo in the [README](../README.md#run-a-local-demo), or the local MySQL setup in [Setup and operations](SETUP.md). Use fictional names, email addresses and funds.
+
+| Step | Demonstrate | Expected result |
+| --- | --- | --- |
+| 1 | Register a sender and a recipient in separate browser profiles. | Two distinct 12-digit account numbers and zero balances. |
+| 2 | Deposit INR 1,000 into the sender account. | INR 1,000 balance and a deposit receipt. |
+| 3 | Transfer INR 250 using the recipient's number or QR; create a PIN when prompted. | Sender INR 750, recipient INR 250, and one transfer reference visible to both. |
+| 4 | Withdraw INR 100; then try to withdraw INR 1,000. | First withdrawal succeeds; second is rejected. Sender remains at INR 650. |
+| 5 | Lock outgoing payments in Preferences, then return to Overview. | Withdrawal/transfer controls are disabled; backend requests are also rejected. |
+| 6 | Search activity, inspect a receipt and export CSV. | Correct direction, amount, reference and saved file. |
+| 7 | Show a support request and the read-only ledger in Django admin. | Administrator can reply/freeze accounts while ledger amounts remain protected. |
+
+For demo administration, run `.\.venv\Scripts\python backend\manage.py createsuperuser --settings=config.demo_settings` from the project root and open `http://127.0.0.1:8011/admin/`. For the MySQL setup, omit the demo settings and use that API's address. These are separate databases.
+
+### Evidence to show
+
+The [release review](RELEASE-REVIEW.md) records the exact automated checks and external limitations. The [browser smoke script](../scripts/ui-smoke.cjs) also simulates a committed withdrawal whose response is lost, reloads the page, and retries the saved request without a second debit.
 
 - Run the local setup and tests in the [README](../README.md), create two local users, and practise a transfer and statement lookup.
 - Practise tracing a request through the files listed above and running the read-only SQL queries.
