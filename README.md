@@ -158,5 +158,6 @@ render.yaml          Frontend and API hosting configuration
 - Vaibhav Sharma
 - Aashi Agarwal
 - Yashika Pachori
+- Arsh Khan
 
 Found an issue? [Open a GitHub issue](https://github.com/Vaibhavsh0120/HDFC-Bank/issues) with reproduction steps, without passwords, PINs, tokens or recovery codes.
