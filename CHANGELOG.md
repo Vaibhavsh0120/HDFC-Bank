@@ -2,6 +2,14 @@
 
 All money, accounts and virtual cards in this project are fictional. Android 1.1.0 and later use the project release signing key; 1.0.0 used a debug key. iOS IPAs are unsigned and need a compatible signing/container setup.
 
+## 1.6.3 — 2026-11-22
+
+- Replace the retired Aiven database with fresh MySQL 8.4 on Acnologia, managed in the new HDFC-Bank Coolify project.
+- Connect the API through `hdfc-bank.duckdns.org:3306` with mandatory TLS and certificate identity verification. Move Django beside MySQL and use the new HTTPS API URL in web and mobile builds. Remove the old Render backend after cutover.
+- Recreate the schema from versioned migrations. Previous demo accounts, sessions and transactions are intentionally not carried over; register again after the reset.
+- Add a colored root PowerShell menu for setup, demo, hybrid and full-local runs, encryption and private-key-prompt decryption. Document each free deployment.
+- Document database operations and recovery, and run CI database checks on MySQL 8.4.
+
 ## 1.6.2 — 2026-11-04
 
 - Flip the receive QR into a payment-success card showing the actual amount and sender. Restore the QR after eight seconds or a tap, with reduced-motion support.

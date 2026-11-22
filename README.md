@@ -53,7 +53,9 @@ flowchart LR
 | API | Python 3.12, Django 5.2, Django REST Framework 3.18 |
 | Data | MySQL 8, Django ORM and versioned migrations |
 | Mobile | Capacitor 7; shared interface and API |
-| Hosting | Render frontend/API services; Aiven MySQL |
+| Hosting | Render free frontend; Coolify API and MySQL on Acnologia |
+
+See [Deployment locations and developer menu](docs/DEPLOYMENT.md) for current free hosting, Coolify MySQL and root `dev.ps1` commands.
 
 See [Services and their purpose](docs/SERVICES.md) for the free hosting/database plans, Google sign-in, Brevo recovery emails, GitHub releases, LiveContainer updates and environment ownership.
 

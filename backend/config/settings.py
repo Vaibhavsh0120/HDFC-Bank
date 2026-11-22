@@ -119,7 +119,8 @@ CORS_ALLOWED_ORIGINS = csv(
     "http://localhost:4321,http://127.0.0.1:4321" if DEBUG else "",
 ) + ["https://localhost", "capacitor://localhost"]
 
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if os.getenv("RENDER") else None
+TRUST_PROXY = bool(os.getenv("RENDER")) or os.getenv("DJANGO_TRUST_PROXY") == "1"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if TRUST_PROXY else None
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_REDIRECT_EXEMPT = [r"^health/$"]
 SESSION_COOKIE_SECURE = not DEBUG
@@ -131,5 +132,5 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_THROTTLE_RATES": {"access": "12/min", "recipient": "30/min", "security": "30/min", "recovery": "6/hour"},
-    "NUM_PROXIES": 1 if os.getenv("RENDER") else 0,
+    "NUM_PROXIES": 1 if TRUST_PROXY else 0,
 }

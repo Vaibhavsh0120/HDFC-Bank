@@ -4,7 +4,7 @@ For the quickest isolated preview, start with the [README](../README.md#run-a-lo
 
 ## Local network setup
 
-Use the local scripts for a Windows-hosted MySQL installation and devices connected to the same network. The local database and its accounts are separate from Aiven.
+Use the local scripts for a Windows-hosted MySQL installation and devices connected to the same network. The local database and its accounts are separate from the hosted Coolify database.
 
 The local network address uses HTTP. Use it only on a trusted Wi-Fi network, and stop the services when you are finished.
 
@@ -107,15 +107,15 @@ For Google sign-in, set `GOOGLE_CLIENT_ID` on the backend to a Google web OAuth 
 
 ## Deployment
 
-The application has two independently deployed Render services and a persistent Aiven MySQL database.
+The frontend runs on Render Free. Django and MySQL share the HDFC-Bank project on the existing Oracle Always Free Acnologia VM through Coolify. See [Deployment and development](DEPLOYMENT.md) for current resources and the root `dev.ps1` menu.
 
 | Service | Role |
 | --- | --- |
 | [Frontend](https://hdfc-bank-web.onrender.com) | Serves the Astro static build. |
 | [API](https://hdfc-bank-api-mxm8.onrender.com/health/) | Runs Django and connects to MySQL. |
-| Aiven MySQL | Stores accounts, sessions and transaction records independently of app deploys. |
+| Coolify MySQL on Acnologia | Stores accounts, sessions and transaction records independently of app deploys. |
 
-The root `render.yaml` describes the services. Configure the backend's Django secret, allowed frontend origin, MySQL connection and `DB_SSL_CA_BASE64`. Configure `PUBLIC_API_URL` on the frontend to the API's HTTPS origin. Apply migrations and create a Django administrator for a new database.
+The root `render.yaml` describes only the frontend. `backend/Dockerfile` builds the Coolify API. Configure the backend's Django secret, allowed frontend origin, MySQL connection and `DB_SSL_CA_BASE64`. Configure `PUBLIC_API_URL` on the frontend to the API's HTTPS origin. Apply migrations and create a Django administrator for a new database.
 
 Free hosting may take time to wake after inactivity. The interface reports connection errors so a request can be retried.
 
@@ -190,7 +190,7 @@ Password and PIN reset codes expire after 10 minutes, allow at most five wrong a
 
 For existing SMTP configuration, set `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, and the matching TLS/SSL options. The SMTP backend is selected automatically when `EMAIL_HOST` is present. Set only one of `EMAIL_USE_TLS` or `EMAIL_USE_SSL` to `1`.
 
-Render free services block standard SMTP ports. The deployed project uses Brevo Free (300 emails/day): set `BREVO_API_KEY` and a verified `DEFAULT_FROM_EMAIL`; the HTTPS backend is selected automatically. Complete Brevo phone/sender verification and create a key restricted to transactional email. `RESEND_API_KEY` remains an alternative for deployments with a verified sending domain. See [Render's free-service limits](https://render.com/docs/free) and [Resend's sending API](https://resend.com/docs/api-reference/emails/send-email). Plaintext email credentials are excluded from source control. Keep `.env.example` free of secrets, update the Render API environment separately, and run `agel` from `backend/` to refresh the encrypted `.env.age` backup. A new deployment is required after changing hosting configuration. Without a sender, production recovery reports that email delivery is unavailable.
+Render free services block standard SMTP ports. The deployed project uses Brevo Free (300 emails/day): set `BREVO_API_KEY` and a verified `DEFAULT_FROM_EMAIL`; the HTTPS backend is selected automatically. Complete Brevo phone/sender verification and create a key restricted to transactional email. `RESEND_API_KEY` remains an alternative for deployments with a verified sending domain. See [Render's free-service limits](https://render.com/docs/free) and [Resend's sending API](https://resend.com/docs/api-reference/emails/send-email). Plaintext email credentials are excluded from source control. Keep `.env.example` free of secrets, update the Coolify API environment separately, and run `agel` from `backend/` to refresh the encrypted `.env.age` backup. A new deployment is required after changing hosting configuration. Without a sender, production recovery reports that email delivery is unavailable.
 
 Both PIN and password recovery send styled HTML plus plain text. The centered title, contiguous six-digit code and explicit verification-code subject help email clients recognize the code. The reset forms use `autocomplete="one-time-code"`. Gmail copy-code cards and OS autofill are controlled by the email client/OS and are not guaranteed; the app does not read the user's mailbox.
 
@@ -206,7 +206,7 @@ Nominee records belong to the signed-in account, require a PIN to change, and re
 
 The iOS shell includes safe-area spacing and a portrait fallback for embedded containers that report zero top inset. Android uses the native QR scanner, with image upload and account-number entry as alternatives. Browser camera scanning needs HTTPS or localhost; an HTTP LAN page can still upload a QR image.
 
-- Local MySQL uses an explicit loopback-only mode so hosted TLS settings cannot leak into a local connection. Hosted MySQL verifies the Aiven certificate.
+- Local MySQL uses an explicit loopback-only mode so hosted TLS settings cannot leak into a local connection. Hosted MySQL verifies the Coolify MySQL server certificate.
 - Incoming transfers are checked while the account is open, and transaction identifiers let a customer safely retry an interrupted confirmation.
 - Transfers and withdrawals require a transaction PIN. Incorrect attempts are locked temporarily.
 - Account QR codes contain an internal account number. Scanning fills the transfer form, and the recipient is confirmed before a transfer is submitted.

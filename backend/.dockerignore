@@ -1,0 +1,7 @@
+.env*
+!.env.example
+*.pem
+*.sqlite3*
+__pycache__
+*.pyc
+staticfiles

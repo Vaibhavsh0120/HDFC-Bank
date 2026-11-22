@@ -1,12 +1,12 @@
 # Services and their purpose
 
-The deployed project uses the services below. Hosting, database and recovery email are configured on free plans. No paid plan, payment-card purchase, custom domain or SMTP add-on is required for the current setup. Free quotas and provider policies still apply; exceeding them can delay builds, stop email delivery or require waiting for a reset. Do not enable paid upgrades or automatic credit purchases to solve a quota limit.
+The deployed project uses the services below. The frontend and recovery email use free provider plans. The API runs on the existing Oracle Always Free Acnologia server through Coolify. MySQL runs on the existing Acnologia server managed by Coolify. No paid plan, payment-card purchase, custom domain or SMTP add-on is required for the current setup. Free quotas and provider policies still apply; exceeding them can delay builds, stop email delivery or require waiting for a reset. Do not enable paid upgrades or automatic credit purchases to solve a quota limit.
 
 | Service | What it does | Configuration and cost boundary |
 | --- | --- | --- |
 | [Render frontend](https://hdfc-bank-web.onrender.com) | Serves the built Astro/React website over HTTPS. | Static site; builds `frontend/`. Its public API URL points to the separate API service. |
-| [Render API](https://hdfc-bank-api-mxm8.onrender.com/health/) | Runs Django, validates logins, handles account settings, recovery codes and banking operations. | Free web service. Deploys from `main`; applies migrations before starting Gunicorn. Free instances can sleep when idle. |
-| [Aiven MySQL](https://console.aiven.io/) | Stores users, accounts, sessions, hashed recovery challenges and the transaction ledger persistently. | Current service plan: `free-1-1gb` ($0). `DB_*` variables and a TLS CA connect only the backend to it. Local demos use a separate SQLite database. |
+| [Coolify API](https://hdfc-bank.duckdns.org/health/) | Runs Django for authentication, recovery and banking. | HDFC-Bank / production on Acnologia, existing Oracle Always Free VM. No paid plan. Replaces the deleted Render API. |
+| Coolify MySQL on Acnologia | Stores users, accounts, sessions, hashed recovery challenges and the transaction ledger persistently. | MySQL 8.4 in the HDFC-Bank project on the existing Oracle server. Endpoint: `hdfc-bank.duckdns.org:3306`. Backend-only credentials and a private CA enforce verified TLS. Persistent Docker volume and daily local backups. Local demos use a separate SQLite database. |
 | [Google Identity](https://console.cloud.google.com/apis/credentials) | Lets users sign in with Google and explicitly link Google to an existing account. | OAuth client IDs identify the web, Android and iOS clients. The backend verifies Google ID tokens; it does not read Gmail. Password sign-in remains available independently. |
 | [Brevo](https://app.brevo.com/) | Delivers password-reset and transaction-PIN-reset codes using its HTTPS transactional-email API. | Free allowance: 300 emails per day, shared with any other use of this Brevo account. A verified sender and phone are required. `BREVO_API_KEY` stays on the backend; `DEFAULT_FROM_EMAIL` selects the sender. |
 | [GitHub repository](https://github.com/Vaibhavsh0120/HDFC-Bank) | Stores source code, documentation and the encrypted environment backup. | Plaintext `.env` files, local databases and test artifacts are ignored. Encrypted `.env.age` can be tracked; its private decryption identity must stay outside the repository. |
@@ -27,10 +27,12 @@ Reset emails contain a styled HTML message and a plain-text alternative. The tit
 
 | Location | Contains |
 | --- | --- |
-| `backend/.env` and Render API environment | Database credentials, Django secret, Google web client ID, Brevo key and sender. |
+| `backend/.env` and Coolify API environment | Database credentials, Django secret, Google web client ID, Brevo key and sender. |
 | `backend/.env.example` | Variable names, safe placeholders and setup hints; no real keys. |
-| `backend/.env.age` | Encrypted copy of the local backend environment. Updating it does not change Render settings automatically. |
+| `backend/.env.age` | Encrypted copy of the local backend environment. Updating it does not change Coolify settings automatically. |
 | `frontend/.env` and frontend build settings | Public API origin and public Google client IDs. Never add the Brevo key, database password or Django secret here. |
 | GitHub repository variables/secrets | Build configuration and Android signing credentials used by the release workflows. |
 
 The optional Resend and SMTP adapters remain available for alternate deployments. They are not used by this project's current Brevo configuration. The chat's Brevo connection is a management tool; deployed Django uses its own restricted transactional-email API key so recovery works without this chat running.
+
+See [Deployment locations and developer menu](DEPLOYMENT.md) for the current topology, private MySQL connection, costs and encryption commands.

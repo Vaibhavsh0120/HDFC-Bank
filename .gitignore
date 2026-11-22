@@ -6,6 +6,8 @@ __pycache__/
 .env.*
 !.env.example
 !.env.age
+!.env.*.age
+.env*.tmp
 *.pem
 *.log
 staticfiles/
