@@ -7,7 +7,7 @@
 
   Manage an account, move funds and follow your activity across the web and mobile.
 
-  [Open the website](https://hdfc-bank-web.onrender.com) · [Mobile releases](https://github.com/Vaibhavsh0120/HDFC-Bank/releases) · [LiveContainer source](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json) · [Release notes](CHANGELOG.md) · [Trainer study guide](docs/PROJECT-STUDY-GUIDE.md)
+  [Open the website](https://www.hdfc-bank.duckdns.org) · [Mobile releases](https://github.com/Vaibhavsh0120/HDFC-Bank/releases) · [LiveContainer source](https://raw.githubusercontent.com/Vaibhavsh0120/HDFC-Bank/main/apps.json) · [Release notes](CHANGELOG.md) · [Trainer study guide](docs/PROJECT-STUDY-GUIDE.md)
 </div>
 
 ---
@@ -53,7 +53,7 @@ flowchart LR
 | API | Python 3.12, Django 5.2, Django REST Framework 3.18 |
 | Data | MySQL 8, Django ORM and versioned migrations |
 | Mobile | Capacitor 7; shared interface and API |
-| Hosting | Render free frontend + Coolify frontend, API and MySQL on Acnologia |
+| Hosting | Oracle Always Free VM: Coolify frontend, API and MySQL on Acnologia |
 
 See [Deployment locations and developer menu](docs/DEPLOYMENT.md) for current free hosting, Coolify MySQL and root `dev.ps1` commands.
 
@@ -144,7 +144,8 @@ frontend/            Astro/React interface, assets and Capacitor tooling
 docs/                Setup, reviewer guide and verification evidence
 scripts/             Local network helpers and browser smoke check
 .github/workflows/   Verification and manual mobile packaging
-render.yaml          Frontend and API hosting configuration
+backend/Dockerfile   API image for Oracle Cloud / Coolify
+frontend/Dockerfile  Static website image for Oracle Cloud / Coolify
 ```
 
 ## Demonstration boundaries

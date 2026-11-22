@@ -4,8 +4,7 @@
 
 | Component | Deployment | Address / resource | Cost |
 | --- | --- | --- | --- |
-| Frontend | Render free static site, `hdfc-bank-web` | https://hdfc-bank-web.onrender.com | $0 within free quotas |
-| Frontend (second copy) | Coolify, Acnologia, HDFC-Bank / production, `hdfc-bank-web` | https://www.hdfc-bank.duckdns.org | Same existing Oracle Always Free VM |
+| Frontend | Coolify, Acnologia, HDFC-Bank / production, `hdfc-bank-web` | https://www.hdfc-bank.duckdns.org | Same existing Oracle Always Free VM |
 | Backend | Coolify, Acnologia, HDFC-Bank / production, `hdfc-bank-api` | https://hdfc-bank.duckdns.org | Existing Oracle Always Free VM, no paid hosting plan |
 | MySQL 8.4 | Coolify, Acnologia, HDFC-Bank / production, `hdfc-bank-mysql` | Private Docker hostname `pjd4qwqvg12ls4lj48m8ibj4:3306`, database `defaultdb` | Same existing free VM, no paid database subscription |
 | DNS | DuckDNS | `hdfc-bank.duckdns.org` points to **130.210.21.159** | Free |
@@ -13,9 +12,9 @@
 | Recovery emails | Brevo HTTPS API | Backend-only API key | Free allowance of 300 emails/day, shared across this Brevo account |
 | Source and releases | Public GitHub repository, Actions and Releases | `Vaibhavsh0120/HDFC-Bank`, APK + unsigned IPA | Free public runners/storage within provider limits |
 
-All deployed components use free plans or the existing free VM. No paid plan or upgrade was purchased. Provider quotas, Oracle free-tier capacity and provider policies still apply. Coolify is self-hosted on Volcanica and manages Acnologia; it is not a paid Coolify Cloud subscription. Aiven is retired. The old Render backend is deleted after the replacement passes cutover checks. Render retains its frontend. A second frontend runs on Coolify; both use the same Coolify API and MySQL.
+The complete frontend, backend and MySQL deployment runs on Oracle Cloud through self-hosted Coolify. All components use free plans or the existing Oracle Always Free VM. No paid plan or upgrade was purchased. Provider quotas, Oracle free-tier capacity and provider policies still apply. Coolify is self-hosted on Volcanica and manages Acnologia; no paid Coolify Cloud subscription is used.
 
-The backend and database share a private Docker network. Django uses the private database hostname, a dedicated `bank` user and verified TLS. A canvas edge documents the connection; environment variables and Docker networking establish it. MySQL also offers a TLS-only endpoint at `hdfc-bank.duckdns.org:3306` for local development option 4. Backend credentials never belong in frontend settings. Old Aiven users, sessions and ledger data were intentionally discarded on 22 November 2026; everyone must register again.
+The backend and database share a private Docker network. Django uses the private database hostname, a dedicated `bank` user and verified TLS. A canvas edge documents the connection; environment variables and Docker networking establish it. MySQL also offers a TLS-only endpoint at `hdfc-bank.duckdns.org:3306` for local development option 4. Backend credentials never belong in frontend settings. Previous demo users, sessions and ledger data were intentionally discarded on 22 November 2026; everyone must register again.
 
 The static Coolify frontend has a 64 MB limit. The API has a 256 MB container limit, one Gunicorn worker and two threads. MySQL has a 512 MB limit, a 128 MB InnoDB buffer pool, at most 40 connections and performance schema disabled. Acnologia has 1 GB RAM and swap. Monitor memory before adding workloads. Django migrations run at backend startup; redeploying does not reset records.
 
@@ -58,6 +57,12 @@ External Android signing keystores and Oracle SSH keys remain separately managed
 
 Coolify schedules a MySQL dump daily at 02:30 UTC (08:00 IST), retaining seven local backups. These are on Acnologia; VM loss can also lose local backups, so separately retain important dumps. Persistent data lives in Docker volume `mysql-data-pjd4qwqvg12ls4lj48m8ibj4`. Do not delete it during redeployment.
 
-For a bad API deployment, redeploy the last working image in Coolify. Reverting code does not reverse database migrations. For data recovery, stop writes and test a SQL dump in a separate database first. Aiven is not a rollback target because its records were intentionally discarded. Update Coolify runtime variables separately from encrypted local backups.
+For a bad API deployment, redeploy the last working image in Coolify. Reverting code does not reverse database migrations. For data recovery, stop writes and test a SQL dump in a separate database first. The retired database is not a rollback target because its records were intentionally discarded. Update Coolify runtime variables separately from encrypted local backups.
 
-New web/mobile builds use `https://hdfc-bank.duckdns.org`. Install release 1.6.3 or later after the old Render API is deleted: older mobile builds embed the retired URL. Everyone must register again on the fresh database.
+New web/mobile builds use `https://hdfc-bank.duckdns.org`. Install release 1.6.3 or later: older mobile builds embed the retired API URL. Everyone must register again on the fresh database.
+
+## Automatic deployments from main
+
+Both Coolify applications track branch `main` with `git_commit_sha=HEAD`, with automatic deployment enabled. A signed GitHub `push` webhook calls Coolify's manual GitHub webhook endpoint and deploys both apps when `main` changes. Other branches do not deploy production. No application is pinned to a release tag or historical commit. A running container still records the exact commit it was built from; this is deployment evidence, not a branch pin.
+
+The webhook secret is stored in GitHub's hook configuration and both Coolify applications. Its local encrypted recovery copy is `secrets/deployment/.env.age`; option 7 restores it to `secrets/deployment/.env`. Never publish the plaintext secret. TLS verification is enabled for webhook delivery. Keep this webhook active when rotating the secret, and update both app secrets together. If delivery fails, inspect GitHub webhook deliveries and redeploy `main` in Coolify.

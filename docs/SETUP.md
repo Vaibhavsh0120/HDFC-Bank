@@ -107,15 +107,15 @@ For Google sign-in, set `GOOGLE_CLIENT_ID` on the backend to a Google web OAuth 
 
 ## Deployment
 
-The frontend runs on Render Free. Django and MySQL share the HDFC-Bank project on the existing Oracle Always Free Acnologia VM through Coolify. See [Deployment and development](DEPLOYMENT.md) for current resources and the root `dev.ps1` menu.
+The frontend runs on Oracle Cloud through Coolify at https://www.hdfc-bank.duckdns.org. Django and MySQL share the HDFC-Bank project on the existing Oracle Always Free Acnologia VM through Coolify. See [Deployment and development](DEPLOYMENT.md) for current resources and the root `dev.ps1` menu.
 
 | Service | Role |
 | --- | --- |
-| [Frontend](https://hdfc-bank-web.onrender.com) | Serves the Astro static build. |
-| [API](https://hdfc-bank-api-mxm8.onrender.com/health/) | Runs Django and connects to MySQL. |
+| [Frontend](https://www.hdfc-bank.duckdns.org) | Serves the Astro static build. |
+| [API](https://hdfc-bank.duckdns.org/health/) | Runs Django and connects to MySQL. |
 | Coolify MySQL on Acnologia | Stores accounts, sessions and transaction records independently of app deploys. |
 
-The root `render.yaml` describes only the frontend. `backend/Dockerfile` builds the Coolify API. Configure the backend's Django secret, allowed frontend origin, MySQL connection and `DB_SSL_CA_BASE64`. Configure `PUBLIC_API_URL` on the frontend to the API's HTTPS origin. Apply migrations and create a Django administrator for a new database.
+`frontend/Dockerfile` builds the static website and `backend/Dockerfile` builds the Django API for Coolify on Oracle Cloud. Configure the backend's Django secret, allowed frontend origin, MySQL connection and `DB_SSL_CA_BASE64`. Configure `PUBLIC_API_URL` on the frontend to the API's HTTPS origin. Apply migrations and create a Django administrator for a new database.
 
 Free hosting may take time to wake after inactivity. The interface reports connection errors so a request can be retried.
 
@@ -190,7 +190,7 @@ Password and PIN reset codes expire after 10 minutes, allow at most five wrong a
 
 For existing SMTP configuration, set `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, and the matching TLS/SSL options. The SMTP backend is selected automatically when `EMAIL_HOST` is present. Set only one of `EMAIL_USE_TLS` or `EMAIL_USE_SSL` to `1`.
 
-Render free services block standard SMTP ports. The deployed project uses Brevo Free (300 emails/day): set `BREVO_API_KEY` and a verified `DEFAULT_FROM_EMAIL`; the HTTPS backend is selected automatically. Complete Brevo phone/sender verification and create a key restricted to transactional email. `RESEND_API_KEY` remains an alternative for deployments with a verified sending domain. See [Render's free-service limits](https://render.com/docs/free) and [Resend's sending API](https://resend.com/docs/api-reference/emails/send-email). Plaintext email credentials are excluded from source control. Keep `.env.example` free of secrets, update the Coolify API environment separately, and run `agel` from `backend/` to refresh the encrypted `.env.age` backup. A new deployment is required after changing hosting configuration. Without a sender, production recovery reports that email delivery is unavailable.
+The deployed project uses Brevo Free (300 emails/day): set `BREVO_API_KEY` and a verified `DEFAULT_FROM_EMAIL`; the HTTPS backend is selected automatically. Complete Brevo phone/sender verification and create a key restricted to transactional email. `RESEND_API_KEY` remains an alternative for deployments with a verified sending domain. See [Brevo's transactional-email API](https://developers.brevo.com/reference/send-transac-email). Plaintext email credentials are excluded from source control. Keep `.env.example` free of secrets, update the Coolify API environment separately, and run `agel` from `backend/` to refresh the encrypted `.env.age` backup. A new deployment is required after changing hosting configuration. Without a sender, production recovery reports that email delivery is unavailable.
 
 Both PIN and password recovery send styled HTML plus plain text. The centered title, contiguous six-digit code and explicit verification-code subject help email clients recognize the code. The reset forms use `autocomplete="one-time-code"`. Gmail copy-code cards and OS autofill are controlled by the email client/OS and are not guaranteed; the app does not read the user's mailbox.
 

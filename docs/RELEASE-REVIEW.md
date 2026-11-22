@@ -22,11 +22,11 @@ Profile menus now use the dashboard width (three columns on large desktops, two 
 
 Sign-in method changes require password confirmation or a newly issued, server-verified Google identity token. Linking is explicit, identities cannot be shared across banking users, and Google-only accounts must add a password before unlinking. A user-row lock coordinates Google session creation and unlinking. Unit tests cover both methods, incorrect credentials, old/wrong Google proofs, account isolation, last-method protection and session revocation. Browser checks exercise the forms with a simulated Google selection; a live account-linking OAuth interaction remains a separate device/provider check.
 
-Brevo Free is configured for HTTPS recovery delivery on Render Free. Both PIN and password reset messages have HTML/plain-text content, centered titles, continuous six-digit codes and explicit subjects. A delivery/design preview was accepted by Brevo and independently found in the maintainer's Gmail inbox. Production endpoint verification is recorded separately after deployment. Google/Gmail decides whether to offer copy-code cards; no app mailbox access or guaranteed autofill is claimed.
+Brevo Free provides hosted HTTPS recovery delivery. Both PIN and password reset messages have HTML/plain-text content, centered titles, continuous six-digit codes and explicit subjects. A delivery/design preview was accepted by Brevo and independently found in the maintainer's Gmail inbox. Production endpoint verification is recorded separately after deployment. Google/Gmail decides whether to offer copy-code cards; no app mailbox access or guaranteed autofill is claimed.
 
 Local evidence: 63 Django tests (61 passed, two MySQL-only skips); seven device-unlock policy tests; three release/source tests; Astro check without errors/warnings; production build; account/payment smoke, card replacement/network checks, sign-in method UI and iOS/Android simulated-bridge regression checks. The user confirmed working Face ID on their actual iPhone after 1.5.1. Physical Android authentication and the newly built mobile packages still need device checks. Better Design's free monthly quota was exhausted, so its review tools returned no result; rendered screenshots and direct DOM measurements were used for this review.
 
-The [service inventory](SERVICES.md) documents the free service plans and each service's role. `.env.example` contains placeholders; `.env` is ignored, Render was configured separately, and PowerShell `agel` refreshed the tracked encrypted backend backup.
+The [service inventory](SERVICES.md) documents the free service plans and each service's role. `.env.example` contains placeholders; `.env` is ignored, hosted settings were configured separately, and PowerShell `agel` refreshed the tracked encrypted backend backup.
 
 ## Version 1.5.1 follow-up
 
@@ -100,7 +100,7 @@ Both scripts create fictional users against loopback port 8011 and write outputs
 
 - **Hosted recovery:** configure an email sender and verify actual inbox delivery before demonstrating hosted password/PIN recovery. The final review tested local/API recovery behavior and mocked provider acceptance, not a production inbox.
 - **Native hardware:** camera scanning, file sharing, Google account login and safe areas need physical Android/iPhone checks. iOS compilation/signing was not performed on Windows. Previous local Android build evidence is described in the customer-flow audit; this review does not claim a newly published mobile binary.
-- **Hosting and Actions:** confirm the pushed commit is deployed by Render and that GitHub Actions is allowed to execute. A local build and valid workflow do not prove a hosted run.
+- **Hosting and Actions:** confirm the pushed commit is deployed by Coolify on Oracle Cloud and that GitHub Actions is allowed to execute. A local build and valid workflow do not prove a hosted run.
 - **Trainer rubric:** the application uses one Django domain app and no custom banking many-to-many field. The trainer must assess these against the actual assignment. Team contributions and reviews must reflect real work.
 
 ## Scope limits worth explaining

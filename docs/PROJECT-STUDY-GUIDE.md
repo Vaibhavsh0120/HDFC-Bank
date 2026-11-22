@@ -183,7 +183,7 @@ Django migrations describe schema changes, and the ORM turns model operations in
 5. **Why hash the PIN and token?** The database does not need the original values to verify a PIN or look up an issued bearer token.
 6. **What is a migration?** A versioned description of a schema change that Django can apply to the configured database.
 7. **How does the recipient see a transfer?** An open screen polls for entries after its last cursor; it does not provide background push notifications.
-8. **How do local and hosted data differ?** The local script connects to MySQL on this computer. The deployed API connects to Aiven MySQL. They are separate databases.
+8. **How do local and hosted data differ?** The local script connects to MySQL on this computer. The deployed API connects to MySQL on the Oracle Cloud Acnologia server. They are separate databases.
 
 ## Before the college review
 

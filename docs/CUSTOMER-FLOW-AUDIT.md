@@ -64,7 +64,6 @@ The original review below records the pre-1.5.0 baseline.
 
 ## External dependencies and limits
 
-- No SMTP or HTTPS-mail credentials were found in the local backend configuration. Email delivery is implemented and tested locally, but hosted inbox delivery still needs sender credentials. The connected Render service is on the free plan, whose standard SMTP ports are blocked; an HTTPS email backend is included for that case. The Render connector exposes service details but no read-only environment-variable endpoint, so hosted secret values were not inspected or changed.
 - Camera scanning and file sharing have not been tested on physical Android/iPhone devices. iPhone notch clearance has been simulated; physical-device confirmation is still needed.
 - No external UPI, real-money bank rails, merchant card processing, regulated KYC or legal nomination service is connected. The interface identifies internal transfers, virtual funds and demo cards accordingly.
 - Production migrations/deployment and mobile release publication must be verified after the source push. Existing production credentials and encrypted backups were preserved.

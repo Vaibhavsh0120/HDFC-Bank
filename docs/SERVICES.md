@@ -4,8 +4,8 @@ The deployed project uses the services below. The frontend and recovery email us
 
 | Service | What it does | Configuration and cost boundary |
 | --- | --- | --- |
-| [Render frontend](https://hdfc-bank-web.onrender.com) | Serves the built Astro/React website over HTTPS. | Static site; builds `frontend/`. Its public API URL points to the separate API service. |
-| [Coolify API](https://hdfc-bank.duckdns.org/health/) | Runs Django for authentication, recovery and banking. | HDFC-Bank / production on Acnologia, existing Oracle Always Free VM. No paid plan. Replaces the deleted Render API. |
+| [Coolify frontend](https://www.hdfc-bank.duckdns.org) | Serves the Astro/React static website. | Same existing Oracle Always Free Acnologia VM, HDFC-Bank project. Tracks the latest `main` branch automatically. |
+| [Coolify API](https://hdfc-bank.duckdns.org/health/) | Runs Django for authentication, recovery and banking. | HDFC-Bank / production on Acnologia, existing Oracle Always Free VM. No paid plan. Tracks the latest `main` branch automatically. |
 | Coolify MySQL on Acnologia | Stores users, accounts, sessions, hashed recovery challenges and the transaction ledger persistently. | MySQL 8.4 in the HDFC-Bank project on the existing Oracle server. Endpoint: `hdfc-bank.duckdns.org:3306`. Backend-only credentials and a private CA enforce verified TLS. Persistent Docker volume and daily local backups. Local demos use a separate SQLite database. |
 | [Google Identity](https://console.cloud.google.com/apis/credentials) | Lets users sign in with Google and explicitly link Google to an existing account. | OAuth client IDs identify the web, Android and iOS clients. The backend verifies Google ID tokens; it does not read Gmail. Password sign-in remains available independently. |
 | [Brevo](https://app.brevo.com/) | Delivers password-reset and transaction-PIN-reset codes using its HTTPS transactional-email API. | Free allowance: 300 emails per day, shared with any other use of this Brevo account. A verified sender and phone are required. `BREVO_API_KEY` stays on the backend; `DEFAULT_FROM_EMAIL` selects the sender. |
@@ -17,7 +17,7 @@ The deployed project uses the services below. The frontend and recovery email us
 
 ## Why recovery email uses HTTPS
 
-[Render free web services block outbound SMTP ports 25, 465 and 587](https://render.com/docs/free#other-limitations). A Gmail app password authenticates an SMTP connection; it cannot remove that network restriction. The current deployment sends through [Brevo's HTTPS endpoint](https://developers.brevo.com/reference/send-transac-email), so it works without upgrading Render or using the Gmail app password.
+Recovery emails use [Brevo's HTTPS endpoint](https://developers.brevo.com/reference/send-transac-email) with a backend-only restricted transactional key. This avoids relying on SMTP ports and keeps delivery independent of local mail clients.
 
 A verified Gmail sender can be used without buying a domain. Brevo may rewrite its delivery address to a `brevosend.com` address for authentication compliance. The display name still identifies the student project. [Brevo explains its sender requirements here](https://help.brevo.com/hc/en-us/articles/14925263522578).
 
