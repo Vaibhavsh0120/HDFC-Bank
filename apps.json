@@ -18,6 +18,15 @@
       "tintColor": "#132A57",
       "versions": [
         {
+          "version": "1.6.3",
+          "buildVersion": "1006003",
+          "date": "2026-11-22T10:08:58Z",
+          "localizedDescription": "- Replace the retired Aiven database with fresh MySQL 8.4 on Acnologia, managed in the new HDFC-Bank Coolify project.\n- Connect the API through `hdfc-bank.duckdns.org:3306` with mandatory TLS and certificate identity verification. Move Django beside MySQL and use the new HTTPS API URL in web and mobile builds. Remove the old Render backend after cutover.\n- Recreate the schema from versioned migrations. Previous demo accounts, sessions and transactions are intentionally not carried over; register again after the reset.\n- Deploy a second frontend in the same Coolify project at `https://www.hdfc-bank.duckdns.org`, while keeping the Render frontend.\n- Add a colored root PowerShell menu for setup, demo, hybrid and full-local runs, encryption and private-key-prompt decryption. Document each free deployment.\n- Document database operations and recovery, and run CI database checks on MySQL 8.4.",
+          "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.6.3/HDFC-Bank-1.6.3-ios-unsigned.ipa",
+          "size": 5765544,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "1.6.2",
           "buildVersion": "1006002",
           "date": "2026-11-04T13:58:13Z",
@@ -126,11 +135,11 @@
           "minOSVersion": "15.0"
         }
       ],
-      "version": "1.6.2",
-      "versionDate": "2026-11-04T13:58:13Z",
-      "versionDescription": "- Flip the receive QR into a payment-success card showing the actual amount and sender. Restore the QR after eight seconds or a tap, with reduced-motion support.\n- Check incoming payments every second while visible, retry immediately after reconnecting or returning, and retain progress across temporary failures and reloads.\n- Fix a first-poll timing gap that could skip a payment arriving during account startup. Other pages keep their existing banner and notification preferences remain respected.\n- Reserve release tags before long builds to prevent publication permission errors when newer workflow commits reach `main` during a build.",
-      "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.6.2/HDFC-Bank-1.6.2-ios-unsigned.ipa",
-      "size": 5765485,
+      "version": "1.6.3",
+      "versionDate": "2026-11-22T10:08:58Z",
+      "versionDescription": "- Replace the retired Aiven database with fresh MySQL 8.4 on Acnologia, managed in the new HDFC-Bank Coolify project.\n- Connect the API through `hdfc-bank.duckdns.org:3306` with mandatory TLS and certificate identity verification. Move Django beside MySQL and use the new HTTPS API URL in web and mobile builds. Remove the old Render backend after cutover.\n- Recreate the schema from versioned migrations. Previous demo accounts, sessions and transactions are intentionally not carried over; register again after the reset.\n- Deploy a second frontend in the same Coolify project at `https://www.hdfc-bank.duckdns.org`, while keeping the Render frontend.\n- Add a colored root PowerShell menu for setup, demo, hybrid and full-local runs, encryption and private-key-prompt decryption. Document each free deployment.\n- Document database operations and recovery, and run CI database checks on MySQL 8.4.",
+      "downloadURL": "https://github.com/Vaibhavsh0120/HDFC-Bank/releases/download/v1.6.3/HDFC-Bank-1.6.3-ios-unsigned.ipa",
+      "size": 5765544,
       "minOSVersion": "15.0",
       "appPermissions": {
         "entitlements": [],
