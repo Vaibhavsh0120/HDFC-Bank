@@ -51,6 +51,28 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=bank-${{ matrix.component }}
           cache-to: type=gha,mode=max,scope=bank-${{ matrix.component }}
+      - name: Scan the exact image and block fixable high or critical findings
+        run: |
+          docker run --rm -v "$PWD/.grype.yaml:/config.yaml:ro" \
+            anchore/grype:v0.121.0 \
+            registry:ghcr.io/vaibhavsh0120/hdfc-bank:${{ matrix.component }}-${{ github.sha }} \
+            --platform linux/amd64 --config /config.yaml -o json > image-scan.json
+          python3 - <<'PY'
+          import json
+          matches = json.load(open('image-scan.json'))['matches']
+          blocked = [m for m in matches if m['vulnerability']['severity'] in ('High', 'Critical')
+                     and m['vulnerability'].get('fix', {}).get('state') == 'fixed']
+          print('Fixable high/critical findings:', len(blocked))
+          print('Full scan, including unresolved upstream findings, is retained as an artifact.')
+          if blocked:
+              raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-${{ matrix.component }}
+          path: '*scan.json'
+          if-no-files-found: ignore
 
   deploy:
     needs: [images, verify]

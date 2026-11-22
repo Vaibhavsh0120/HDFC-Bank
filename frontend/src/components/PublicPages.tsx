@@ -184,8 +184,11 @@ export function Landing() {
             <p>Check your balance, review activity and manage transfers from your phone.</p>
             <a className="text-link" href="#register">Open an account <ArrowRight size={16} /></a>
           </div>
-          <div className="phone-preview">
-            <img src="/account-mobile.png" width="390" height="844" loading="lazy" alt="Mobile account overview showing savings balance and quick actions" />
+          <div className="account-preview">
+            <picture>
+              <source media="(min-width: 901px)" srcSet="/account-desktop.png" width="1440" height="960" />
+              <img src="/account-mobile.png" width="390" height="844" loading="lazy" alt="Account overview showing savings balance, quick actions and recent transactions" />
+            </picture>
           </div>
         </div>
       </section>
