@@ -14,6 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
   images:
     runs-on: ubuntu-latest
     strategy:
@@ -50,7 +53,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=bank-${{ matrix.component }}
 
   deploy:
-    needs: images
+    needs: [images, verify]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy the latest main images through a signed Coolify webhook

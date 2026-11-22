@@ -1,13 +1,13 @@
-FROM python:3.12-slim AS build
+FROM python:3.12-alpine3.24 AS build
 ENV PIP_NO_CACHE_DIR=1
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential pkg-config default-libmysqlclient-dev && rm -rf /var/lib/apt/lists/*
+RUN apk upgrade --no-cache && apk add --no-cache build-base pkgconf mariadb-connector-c-dev
 WORKDIR /build
 COPY requirements.txt .
 RUN pip wheel --wheel-dir /wheels -r requirements.txt
 
-FROM python:3.12-slim
+FROM python:3.12-alpine3.24
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-RUN apt-get update && apt-get install -y --no-install-recommends libmariadb3 ca-certificates curl && rm -rf /var/lib/apt/lists/* && useradd --create-home bank
+RUN apk upgrade --no-cache && apk add --no-cache mariadb-connector-c ca-certificates && adduser -D bank
 COPY --from=build /wheels /wheels
 RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 WORKDIR /app
