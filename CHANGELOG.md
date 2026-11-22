@@ -7,6 +7,7 @@ All money, accounts and virtual cards in this project are fictional. Android 1.1
 - Replace the retired Aiven database with fresh MySQL 8.4 on Acnologia, managed in the new HDFC-Bank Coolify project.
 - Connect the API through `hdfc-bank.duckdns.org:3306` with mandatory TLS and certificate identity verification. Move Django beside MySQL and use the new HTTPS API URL in web and mobile builds. Remove the old Render backend after cutover.
 - Recreate the schema from versioned migrations. Previous demo accounts, sessions and transactions are intentionally not carried over; register again after the reset.
+- Deploy a second frontend in the same Coolify project at `https://www.hdfc-bank.duckdns.org`, while keeping the Render frontend.
 - Add a colored root PowerShell menu for setup, demo, hybrid and full-local runs, encryption and private-key-prompt decryption. Document each free deployment.
 - Document database operations and recovery, and run CI database checks on MySQL 8.4.
 

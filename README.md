@@ -53,7 +53,7 @@ flowchart LR
 | API | Python 3.12, Django 5.2, Django REST Framework 3.18 |
 | Data | MySQL 8, Django ORM and versioned migrations |
 | Mobile | Capacitor 7; shared interface and API |
-| Hosting | Render free frontend; Coolify API and MySQL on Acnologia |
+| Hosting | Render free frontend + Coolify frontend, API and MySQL on Acnologia |
 
 See [Deployment locations and developer menu](docs/DEPLOYMENT.md) for current free hosting, Coolify MySQL and root `dev.ps1` commands.
 
